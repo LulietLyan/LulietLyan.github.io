@@ -1,0 +1,326 @@
+---
+import '../styles/global.css'
+import { SITE_CONFIG } from '../config.ts';
+
+interface Props {
+  title: string;
+  description?: string;
+  keywords?: string;
+  siteUrl?: string;
+  ogImageUrl?: string;
+  twitterHandle?: string;
+  personName?: string;
+  jobTitle?: string;
+  lang?: string;
+  socials?: { name: string; url: string }[];
+}
+
+const {
+  title,
+  description = '',
+  keywords = '',
+  siteUrl = '',
+  ogImageUrl = '/placeholder.jpeg',
+  twitterHandle = '',
+  personName = '',
+  jobTitle = '',
+  lang = 'en',
+  socials = [],
+} = Astro.props;
+
+
+const baseTheme = SITE_CONFIG.baseTheme;
+const defaultTheme = `${baseTheme}-dark`;
+
+// Canonical & OG absolute URLs
+const resolvedSiteUrl = siteUrl || Astro.site?.toString() || '';
+const canonicalUrl = resolvedSiteUrl 
+    ? resolvedSiteUrl.replace(/\/$/, '') + '/' 
+    : Astro.url.href;
+const ogImage = ogImageUrl
+    ? new URL(ogImageUrl, resolvedSiteUrl || Astro.url.origin).href
+    : '';
+
+// JSON-LD Structured Data (WebSite + Person)
+const sameAsUrls = socials
+  .filter((s) => s.url && s.url !== '#' && s.url !== '')
+  .map((s) => s.url);
+
+const siteName = personName || title;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': `${canonicalUrl || resolvedSiteUrl}#website`,
+      'name': siteName,
+      'alternateName': [siteName, title],
+      'url': canonicalUrl || resolvedSiteUrl,
+    },
+    {
+      '@type': 'Person',
+      '@id': `${canonicalUrl || resolvedSiteUrl}#person`,
+      'name': siteName,
+      ...(jobTitle ? { jobTitle } : {}),
+      ...(canonicalUrl ? { url: canonicalUrl } : {}),
+      ...(ogImage ? { image: ogImage } : {}),
+      ...(description ? { description } : {}),
+      ...(sameAsUrls.length ? { sameAs: sameAsUrls } : {}),
+    }
+  ]
+};
+
+// 'en' -> 'en_US'
+const ogLocale = lang.includes('_') ? lang : `${lang}_${lang.toUpperCase()}`;
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <title>{title}</title>
+
+    <!-- PRIMARY META -->
+    {description && <meta name="description" content={description} />}
+    {keywords && <meta name="keywords" content={keywords} />}
+    {personName && <meta name="author" content={personName} />}
+    <meta name="robots" content="index, follow" />
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+
+    <!-- OPEN GRAPH -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content={ogLocale} />
+    <meta property="og:site_name" content={personName || title} />
+    <meta property="og:title" content={title} />
+    {description && <meta property="og:description" content={description} />}
+    {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    {ogImage && <meta property="og:image:width" content="1200" />}
+    {ogImage && <meta property="og:image:height" content="630" />}
+    <meta property="og:image:alt" content={`${personName || title} blog preview`} />
+
+    <!-- TWITTER CARD -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    {description && <meta name="twitter:description" content={description} />}
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+    {twitterHandle && <meta name="twitter:site" content={`@${twitterHandle.replace(/^@/, '')}`} />}
+    {twitterHandle && <meta name="twitter:creator" content={`@${twitterHandle.replace(/^@/, '')}`} />}
+
+    <!-- JSON-LD STRUCTURED DATA -->
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+    <!-- THEME TOGGLE SCRIPT -->
+    <meta name="theme-color" content="#000000" id="theme-color-meta" />
+    <script is:inline define:vars={{ baseTheme, defaultTheme }}>
+      const savedTheme = localStorage.getItem('theme');
+      let activeTheme = defaultTheme;
+
+      if (savedTheme && savedTheme.startsWith(baseTheme)) {
+        activeTheme = savedTheme;
+      }
+      
+      document.documentElement.setAttribute('data-theme', activeTheme);
+      localStorage.setItem('theme', activeTheme);
+
+      // Set mobile status bar mode
+      const isDark = activeTheme.endsWith('-dark');
+      const meta = document.getElementById('theme-color-meta');
+      if (meta) {
+        meta.setAttribute('content', isDark ? '#000000' : '#FFFFFF');
+      }
+    </script>
+
+  </head>
+  <body class="bg-container relative min-h-screen overflow-x-hidden antialiased">
+    <div 
+      id="matrix-container" 
+      class="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none"
+      style="mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 100%);"
+    ></div>
+
+    <main class="px-2 sm:px-12 md:px-14 lg:px-28 max-w-360 mx-auto relative z-0">
+        <slot />
+    </main>
+
+    <button
+      id="to-top"
+      class="fixed bottom-8 right-8 z-50 p-0 rounded-full bg-background border border-accent/10 shadow-2xl transition-all duration-500 translate-y-20 opacity-0 group flex items-center justify-center cursor-pointer"
+      aria-label="Back to top"
+    >
+      <svg class="w-14 h-14 -rotate-90">
+        <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" stroke-width="3" class="text-accent/5"></circle>
+        <circle
+          id="progress-circle"
+          cx="28" cy="28" r="24"
+          fill="none"
+          stroke="currentColor" 
+          stroke-width="3"
+          stroke-dasharray="150.7"
+          stroke-dashoffset="150.7"
+          stroke-linecap="round"
+          class="text-accent transition-all duration-100"
+        ></circle>
+      </svg>
+      
+      <div class="absolute text-accent group-hover:scale-110 transition-transform">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M13.0001 7.82843V20H11.0001V7.82843L5.63614 13.1924L4.22192 11.7782L12.0001 4L19.7783 11.7782L18.3641 13.1924L13.0001 7.82843Z"></path>
+        </svg>
+      </div>
+    </button>
+
+    <script>
+      const container = document.getElementById('matrix-container');
+      const characters = "§¶#*/01{}[]";
+
+      function createLetter() {
+        if (!container) return;
+
+        const span = document.createElement('span');
+        const char = characters[Math.floor(Math.random() * characters.length)];
+        const color = "var(--color-textrain)";
+        
+        const left = Math.random() * 100; 
+        const duration = 4 + Math.random() * 8; // 4s to 10s
+        const size = 10 + Math.random() * 10; // 10px to 20px
+        
+        span.innerText = char;
+        span.className = 'falling-letter';
+        span.style.left = `${left}vw`;
+        span.style.color = color;
+        span.style.fontSize = `${size}px`;
+        span.style.animationDuration = `${duration}s`;
+        
+        // Add a slight glow effect
+        span.style.textShadow = `0 0 5px ${color}`;
+        
+        container.appendChild(span);
+
+        setTimeout(() => {
+          span.remove();
+        }, duration * 1000);
+      }
+
+
+      if (window.innerWidth > 768) {
+        // one letter every 250ms
+        setInterval(createLetter, 250);
+      } else {
+        // Static scatter effect for mobile optimization
+        const mobileCount = 20; 
+        for (let i = 0; i < mobileCount; i++) {
+          createStaticLetter();
+        }
+      }
+
+      function createStaticLetter() {
+        if (!container) return;
+
+        const span = document.createElement('span');
+        const char = characters[Math.floor(Math.random() * characters.length)];
+        const color = "var(--color-textrain)";
+        
+        const left = Math.random() * 100; 
+        const top = Math.random() * 90; // Random vertical position
+        const size = 10 + Math.random() * 10;
+        
+        span.innerText = char;
+        span.className = 'falling-letter'; // from global.css
+        
+        // Override animation for mobile 'none'
+        span.style.animation = 'none'; 
+        span.style.left = `${left}vw`;
+        span.style.top = `${top}vh`;
+        span.style.color = color;
+        span.style.fontSize = `${size}px`;
+        span.style.opacity = (0.1 + Math.random() * 0.3).toString();
+        span.style.textShadow = `0 0 5px ${color}`;
+        
+        container.appendChild(span);
+      }
+
+      
+      // ** SCROLL TO TOP ** //
+      const toTopBtn = document.getElementById('to-top');
+      const progressCircle = document.getElementById('progress-circle');
+      const circumference = 150.796; // 2 * pi * 24
+      const arrowIcon = toTopBtn?.querySelector('.absolute');
+
+      function handleScroll() {
+        const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const scrollPercentage = window.scrollY / scrollHeight;
+        
+        // Update the Circle Progress
+        const offset = circumference - (scrollPercentage * circumference);
+        if (progressCircle) {
+          progressCircle.style.strokeDashoffset = offset.toString();
+        }
+
+        // Visibility Logic (Appear at 50%)
+        if (scrollPercentage > 0.5) {
+          toTopBtn?.classList.remove('translate-y-20', 'opacity-0');
+          toTopBtn?.classList.add('translate-y-0', 'opacity-100');
+        } else {
+          toTopBtn?.classList.add('translate-y-20', 'opacity-0');
+          toTopBtn?.classList.remove('translate-y-0', 'opacity-100');
+        }
+
+        // Bounce Logic at 98%
+        if (scrollPercentage > 0.98) {
+          arrowIcon?.classList.add('animate-bounce-twice');
+        } else {
+          arrowIcon?.classList.remove('animate-bounce-twice');
+        }
+      }
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+
+      toTopBtn?.addEventListener('click', () => {
+      arrowIcon?.classList.add('launching');
+
+      const startPosition = window.scrollY;
+      const duration = 750;
+      let startTime: number | null = null;
+      let requestID: number;
+
+      const stopAnimation = () => {
+        cancelAnimationFrame(requestID);
+        arrowIcon?.classList.remove('launching');
+        window.removeEventListener('wheel', stopAnimation);
+        window.removeEventListener('touchmove', stopAnimation);
+      };
+
+      function easeOutQuad(t: number, b: number, c: number, d: number) {
+        t /= d;
+        return -c * t * (t - 2) + b;
+      }
+
+      function animation(currentTime: number) {
+        if (startTime === null) startTime = currentTime;
+        const timeElapsed = currentTime - startTime;
+        const run = easeOutQuad(timeElapsed, startPosition, -startPosition, duration);
+        
+        window.scrollTo(0, run);
+
+        if (timeElapsed < duration) {
+          requestID = requestAnimationFrame(animation);
+        } else {
+          stopAnimation();
+        }
+      }
+
+      // Listen for any user interruption
+      window.addEventListener('wheel', stopAnimation, { once: true });
+      window.addEventListener('touchmove', stopAnimation, { once: true });
+
+      requestID = requestAnimationFrame(animation);
+    });
+    </script>
+  </body>
+</html>

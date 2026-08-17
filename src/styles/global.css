@@ -1,0 +1,155 @@
+@import "tailwindcss";
+@import '@fontsource-variable/space-grotesk';
+
+@theme {
+  --color-background: #101310;
+  --color-accent: #D8FF55;
+  --color-maintext: #F7F3E8;
+  --color-subtext: #B8B6A8;
+  --color-textrain: #4D5F47;
+
+  --font-heading: "Space Grotesk Variable", sans-serif;
+  --font-body: Georgia, "Times New Roman", serif;
+
+  /* Custom Animations */
+  --animate-fall: fall linear forwards;
+  --animate-bounce-twice: double-bounce-pause 5.6s ease-in-out infinite;
+
+  @keyframes fall {
+    0% { transform: translateY(-5vh); opacity: 0; }
+    10% { opacity: 0.5; }
+    90% { opacity: 0.3; }
+    100% { transform: translateY(90vh); opacity: 0; }
+  }
+
+  @keyframes double-bounce-pause {
+    0%, 5.3%, 10.7%, 100% { transform: translateY(0); }
+    2.6% { transform: translateY(-8px); }
+    8% { transform: translateY(-8px); }
+  }
+
+  @keyframes launch {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-50px) scale(0.5); opacity: 0; }
+  }
+}
+
+@layer base {
+  :root,
+  [data-theme="journal-dark"] {
+    --color-background: #101310;
+    --color-accent: #D8FF55;
+    --color-maintext: #F7F3E8;
+    --color-subtext: #B8B6A8;
+    --color-textrain: #4D5F47;
+  }
+
+  [data-theme="journal-light"] {
+    --color-background: #F8F4E8;
+    --color-accent: #C2410C;
+    --color-maintext: #161512;
+    --color-subtext: #675F51;
+    --color-textrain: #C9A66B;
+  }
+
+  [data-theme="strategic-dark"] {
+    --color-background: #0F172A;
+    --color-accent: #38BDF8;
+    --color-maintext: #F1F5F9;
+    --color-subtext: #a0adbf;
+    --color-textrain: #4d5b6f;
+  }
+
+  [data-theme="strategic-light"] {
+    --color-background: #F8FAFC;
+    --color-accent: #0284C7;
+    --color-maintext: #0F172A;
+    --color-subtext: #475569;
+    --color-textrain: #9eb9da;
+  }
+
+  [data-theme="innovator-dark"] {
+    --color-background: #0B0F0E;
+    --color-accent: #BEF264;
+    --color-maintext: #FFFFFF;
+    --color-subtext: #c4c3c3;
+    --color-textrain: #567b6c;
+  }
+
+  [data-theme="innovator-light"] {
+    --color-background: #F0FDF4;
+    --color-accent: #06aa73;
+    --color-maintext: #064E3B;
+    --color-subtext: #4B5563;
+    --color-textrain: #7fbc9e;
+  }
+
+  [data-theme="executive-dark"] {
+    --color-background: #121212;
+    --color-accent: #EAB308;
+    --color-maintext: #FAFAF9;
+    --color-subtext: #dad0c9;
+    --color-textrain: #777271;
+  }
+
+  [data-theme="executive-light"] {
+    --color-background: #FCF8F1;
+    --color-accent: #B45309;
+    --color-maintext: #1C1917;
+    --color-subtext: #71665f;
+    --color-textrain: #e2a787;
+  }
+
+
+  *::selection {
+    @apply bg-accent text-background;
+  }
+
+  body {
+    @apply font-body antialiased text-maintext;
+    background:
+      radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--color-accent), transparent 86%) 0 18rem, transparent 28rem),
+      linear-gradient(135deg, color-mix(in srgb, var(--color-background), black 18%) 0%, var(--color-background) 52%, color-mix(in srgb, var(--color-background), white 10%) 100%);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .section-container {
+    @apply py-12 md:py-20 px-4 md:px-0;
+  }
+
+  .falling-letter {
+    @apply absolute font-heading font-extralight select-none pointer-events-none leading-none;
+    animation: fall linear forwards;
+  }
+  
+  .launching {
+    animation: launch 0.5s ease-in forwards;
+  }
+}
+
+/* Custom Scrollbar for a cleaner look */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background-color: var(--color-background);
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 100px;
+  background-color: color-mix(in srgb, var(--color-accent), transparent 50%);
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--color-accent), transparent 25%);
+}
+
+/* Accessibility: respect OS-level "Reduce Motion" preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

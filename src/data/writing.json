@@ -1,0 +1,26 @@
+[
+  {
+    "company": "Software",
+    "role": "The small systems that make writing sustainable",
+    "period": "Aug 2026",
+    "type": "Essay",
+    "description": "A practical look at the personal workflows, publishing habits, and small automations that keep a blog alive after the first redesign glow fades.",
+    "skills": ["Writing systems", "Astro", "Automation", "Publishing"]
+  },
+  {
+    "company": "Reading",
+    "role": "How to read technical books without turning them into chores",
+    "period": "Jul 2026",
+    "type": "Note",
+    "description": "A short field note on pacing, marginalia, and choosing the few ideas worth carrying into real work.",
+    "skills": ["Books", "Learning", "Notes"]
+  },
+  {
+    "company": "Web",
+    "role": "Why static sites still feel fast, calm, and personal",
+    "period": "Jun 2026",
+    "type": "Field Report",
+    "description": "Notes from rebuilding a personal site with Astro, tuned around maintenance cost, page speed, and the feeling of owning a small corner of the web.",
+    "skills": ["Static sites", "Performance", "Design"]
+  }
+]

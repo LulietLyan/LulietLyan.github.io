@@ -1,0 +1,30 @@
+{
+  "categories": [
+    {
+      "title": "Core Themes",
+      "skills": [
+        { "name": "Web Development", "level": 3, "icon": "mdi:web" },
+        { "name": "Writing Systems", "level": 3, "icon": "mdi:notebook-edit-outline" },
+        { "name": "Reading Notes", "level": 2, "icon": "mdi:book-open-page-variant" },
+        { "name": "Design Critique", "level": 2, "icon": "mdi:palette-outline" }
+      ]
+    },
+    {
+      "title": "Working Materials",
+      "skills": [
+        { "name": "Astro", "level": 3, "icon": "skill-icons:astro" },
+        { "name": "TypeScript", "level": 2, "icon": "skill-icons:typescript" },
+        { "name": "CSS", "level": 3, "icon": "skill-icons:css" },
+        { "name": "Markdown", "level": 3, "icon": "mdi:language-markdown" }
+      ]
+    },
+    {
+      "title": "Formats",
+      "skills": [
+        { "name": "Long Essays", "level": 3, "icon": "mdi:file-document-edit-outline" },
+        { "name": "Short Notes", "level": 3, "icon": "mdi:note-text-outline" },
+        { "name": "Build Logs", "level": 2, "icon": "mdi:hammer-wrench" }
+      ]
+    }
+  ]
+}

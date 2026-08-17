@@ -1,0 +1,56 @@
+{
+  "name": "Your Name",
+  "photoUrl": "favicon.svg",
+  "location": "Internet / Home Office",
+  "availability": "Writing in public",
+  "description": "A personal blog about building software, reading deeply, and turning scattered notes into durable essays.",
+  "descriptionHtml": "A personal blog about <span class='text-accent font-bold'>building software</span>, reading deeply, and turning scattered notes into <span class='text-accent font-bold'>durable essays</span>.",
+  "webpageTitle": "Your Name | Personal Blog",
+  "primaryCtaLabel": "Start Reading",
+  "primaryCtaUrl": "#writing",
+  "secondaryCtaLabel": "Browse Topics",
+  "secondaryCtaUrl": "#topics",
+  "jobTitle": "Notes, essays, and field reports",
+  "keywords": "personal blog, software writing, essays, notes, research, web development",
+  "siteUrl": "https://your-domain.com",
+  "lang": "en",
+  "twitterHandle": "",
+  "ogImageUrl": "/placeholder.jpeg",
+  "socials": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/[YOUR_USER_NAME]",
+      "icon": "mdi:github",
+      "label": "View Profile",
+      "showInContact": true
+    },
+    {
+      "name": "LinkedIn",
+      "url": "#",
+      "icon": "mdi:linkedin",
+      "label": "Connect",
+      "showInContact": false
+    },
+    {
+      "name": "Email",
+      "url": "mailto:your-mail@example.com",
+      "icon": "mdi:email",
+      "label": "Send Email",
+      "showInContact": true
+    },
+    {
+      "name": "RSS",
+      "url": "/rss.xml",
+      "icon": "mdi:rss",
+      "label": "Subscribe",
+      "showInContact": true
+    },
+    {
+      "name": "Mastodon",
+      "url": "#",
+      "icon": "mdi:mastodon",
+      "label": "View Profile",
+      "showInContact": false
+    }
+  ]
+}

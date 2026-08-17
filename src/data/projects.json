@@ -1,0 +1,29 @@
+[
+  {
+    "title": "Desk Notes",
+    "description": "A living collection of compact posts on tools, systems, and everyday engineering judgment.",
+    "images": ["astro-01.webp", "astro-02.jpeg"],
+    "tech": ["Notes", "Tools", "Workflow"],
+    "platforms": ["web"],
+    "link": "#writing",
+    "category": "Essay Series"
+  },
+  {
+    "title": "Reading Ledger",
+    "description": "Annotated reading lists and synthesis notes for books, papers, and essays worth revisiting.",
+    "images": ["astro-02.jpeg", "astro-01.webp"],
+    "tech": ["Books", "Research", "Synthesis"],
+    "platforms": ["web"],
+    "link": "#topics",
+    "category": "Reading Log"
+  },
+  {
+    "title": "Build Log",
+    "description": "Behind-the-scenes reports on site changes, experiments, and the tradeoffs behind each redesign.",
+    "images": ["astro-01.webp"],
+    "tech": ["Astro", "CSS", "Design"],
+    "platforms": ["web"],
+    "link": "#contact",
+    "category": "Field Report"
+  }
+]
