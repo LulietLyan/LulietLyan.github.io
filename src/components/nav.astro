@@ -10,27 +10,17 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     label: "Home",
-    href: "#home",
+    href: "/",
     icon: `mdi:home`,
   },
   {
-    label: "Writing",
-    href: "#writing",
-    icon: `mdi:feather`,
-  },
-  {
-    label: "Notes",
-    href: "#projects",
-    icon: `mdi:notebook-outline`,
-  },
-  {
     label: "Topics",
-    href: "#topics",
-    icon: `mdi:tag-multiple`,
+    href: "/topics",
+    icon: `mdi:bookshelf`,
   },
   {
     label: "Follow",
-    href: "#contact",
+    href: "/#contact",
     icon: `mdi:rss`,
   }
 ];
@@ -276,44 +266,79 @@ const navItems: NavItem[] = [
     { passive: true }
   );
 
-  //smooth scrolling to a linked section
-  document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
-    anchor.addEventListener("click", function (e) {
-      e.preventDefault();
+  function currentPath() {
+    return window.location.pathname.replace(/\/$/, '') || '/';
+  }
+
+  function scrollToHash(hash: string) {
+    const id = hash.replace(/^#/, '');
+    if (!id) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const targetElement = document.getElementById(id);
+    if (targetElement) {
+      targetElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
+  document.querySelectorAll('a[href="/"], a[href^="/#"], a[href^="#"]').forEach((anchor) => {
+    anchor.addEventListener('click', function (e) {
       const target = e.currentTarget as HTMLAnchorElement;
-      const targetId = target.getAttribute("href")?.substring(1) || "";
-      const targetElement = document.getElementById(targetId);
-      if (targetElement) {
-        targetElement.scrollIntoView({
-          behavior: "smooth",
-        });
+      const href = target.getAttribute('href') || '';
+      const path = currentPath();
+
+      if (href === '/' && path === '/') {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      if ((href.startsWith('/#') || href.startsWith('#')) && path === '/') {
+        e.preventDefault();
+        scrollToHash(href.replace(/^\/?/, ''));
       }
     });
   });
 
-  //highlight section by observing visible one on the screen by 50%
-  document.addEventListener("DOMContentLoaded", () => {
-    const sections = document.querySelectorAll("section[id]");
-    const navLinks = document.querySelectorAll("nav a[href^='#']");
-    const observerOptions = { threshold: 0.5 };
+  function setActiveNav() {
+    const path = currentPath();
+    const navLinks = document.querySelectorAll('nav a');
+    navLinks.forEach((link) => link.classList.remove('active'));
 
-    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+    if (path === '/topics' || path.startsWith('/topics/')) {
+      document.querySelector('nav a[href="/topics"]')?.classList.add('active');
+      return;
+    }
+
+    if (path === '/') {
+      document.querySelector('nav a[href="/"]')?.classList.add('active');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setActiveNav();
+
+    if (currentPath() !== '/') return;
+
+    const sections = document.querySelectorAll('section[id]');
+    const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          navLinks.forEach((link) => link.classList.remove("active"));
-          const id = entry.target.getAttribute("id");
-          const activeLink = document.querySelector(`nav a[href="#${id}"]`);
-          if (activeLink) {
-            activeLink.classList.add("active");
-          }
+        if (!entry.isIntersecting) return;
+        const id = entry.target.getAttribute('id');
+        if (id === 'contact') {
+          document.querySelectorAll('nav a').forEach((link) => link.classList.remove('active'));
+          document.querySelector('nav a[href="/#contact"]')?.classList.add('active');
+        } else if (id === 'topics') {
+          document.querySelectorAll('nav a').forEach((link) => link.classList.remove('active'));
+          document.querySelector('nav a[href="/topics"]')?.classList.add('active');
+        } else if (id === 'home') {
+          document.querySelectorAll('nav a').forEach((link) => link.classList.remove('active'));
+          document.querySelector('nav a[href="/"]')?.classList.add('active');
         }
       });
-    };
+    }, { threshold: 0.45 });
 
-    const observer = new IntersectionObserver(
-      observerCallback,
-      observerOptions
-    );
     sections.forEach((section) => observer.observe(section));
   });
 </script>

@@ -1,5 +1,4 @@
 ---
-import { Icon } from 'astro-icon/components';
 import localData from '../data/home.json';
 ---
 
@@ -10,23 +9,9 @@ import localData from '../data/home.json';
         <p class="text-subtext text-sm font-body order-2 md:order-1">
           {localData.name} © 2026
         </p>
-        <div class="flex items-center flex-wrap justify-center gap-3 text-subtext text-xs font-body order-1 md:order-2">
-          <span>Built with </span>
-          <a
-            href="https://astro.build/"
-            target="_blank"
-            class="text-accent font-semibold underline underline-offset-4 decoration-accent/50 hover:decoration-accent hover:text-accent/80 transition-colors"
-          >
-            Astro
-          </a>
-          <span class="text-subtext hidden sm:inline">•</span>
-          <div class="flex gap-4">
-              <!-- Dark Theme Icon -->
-              <Icon name="devicon-plain:astro-wordmark" class="h-11 w-auto group-hover:drop-shadow-[0_0_5px_var(--color-accent)] astro-icon-dark" />
-              <!-- Light Theme Icon -->
-              <Icon name="devicon:astro-wordmark" class="h-11 w-auto group-hover:drop-shadow-[0_0_5px_var(--color-accent)] astro-icon-light" />
-          </div>
-        </div>
+        <p class="text-subtext text-xs font-body order-1 md:order-2">
+          Notes on systems, databases, and the work in between.
+        </p>
       </div>
     </div>
   </div>
@@ -43,14 +28,6 @@ import localData from '../data/home.json';
     transform: translateY(0);
   }
 
-  /* Theme-based icon switching */
-  :global([data-theme$="-dark"]) .astro-icon-light {
-    display: none;
-  }
-  
-  :global([data-theme$="-light"]) .astro-icon-dark {
-    display: none;
-  }
 </style>
 
 <script>

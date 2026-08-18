@@ -33,12 +33,10 @@ const baseTheme = SITE_CONFIG.baseTheme;
 const defaultTheme = `${baseTheme}-dark`;
 
 // Canonical & OG absolute URLs
-const resolvedSiteUrl = siteUrl || Astro.site?.toString() || '';
-const canonicalUrl = resolvedSiteUrl 
-    ? resolvedSiteUrl.replace(/\/$/, '') + '/' 
-    : Astro.url.href;
+const resolvedSiteUrl = (siteUrl || Astro.site?.toString() || Astro.url.origin).replace(/\/$/, '');
+const canonicalUrl = new URL(Astro.url.pathname, `${resolvedSiteUrl}/`).href;
 const ogImage = ogImageUrl
-    ? new URL(ogImageUrl, resolvedSiteUrl || Astro.url.origin).href
+    ? new URL(ogImageUrl, `${resolvedSiteUrl}/`).href
     : '';
 
 // JSON-LD Structured Data (WebSite + Person)
@@ -55,7 +53,7 @@ const jsonLd = {
       '@type': 'WebSite',
       '@id': `${canonicalUrl || resolvedSiteUrl}#website`,
       'name': siteName,
-      'alternateName': [siteName, title],
+      'alternateName': [siteName, 'LulietLyan', title],
       'url': canonicalUrl || resolvedSiteUrl,
     },
     {
@@ -72,7 +70,11 @@ const jsonLd = {
 };
 
 // 'en' -> 'en_US'
-const ogLocale = lang.includes('_') ? lang : `${lang}_${lang.toUpperCase()}`;
+const ogLocale = lang.includes('_')
+  ? lang
+  : lang.includes('-')
+    ? lang.replace('-', '_')
+    : `${lang}_${lang.toUpperCase()}`;
 ---
 
 <!doctype html>
@@ -99,6 +101,7 @@ const ogLocale = lang.includes('_') ? lang : `${lang}_${lang.toUpperCase()}`;
     <meta property="og:title" content={title} />
     {description && <meta property="og:description" content={description} />}
     {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+    <link rel="alternate" type="application/rss+xml" title={`${personName || title} RSS`} href="/rss.xml" />
     {ogImage && <meta property="og:image" content={ogImage} />}
     {ogImage && <meta property="og:image:width" content="1200" />}
     {ogImage && <meta property="og:image:height" content="630" />}
