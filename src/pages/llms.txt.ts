@@ -1,25 +1,22 @@
 import type { APIRoute } from 'astro';
 import home from '../data/home.json';
-import writing from '../data/writing.json';
-import notes from '../data/projects.json';
-import topics from '../data/tech.json';
+import { getTopicForest } from '../utils/topics';
+
+function renderTree(nodes: Awaited<ReturnType<typeof getTopicForest>>, depth = 0): string {
+  return nodes
+    .map((node) => {
+      const indent = '  '.repeat(depth);
+      const line = `${indent}- [${node.title}](${node.href})${node.description ? `: ${node.description}` : ''}`;
+      const children = node.children.length ? `\n${renderTree(node.children, depth + 1)}` : '';
+      return `${line}${children}`;
+    })
+    .join('\n');
+}
 
 export const GET: APIRoute = async () => {
-  const siteUrl = (home.siteUrl || 'https://your-domain.com').replace(/\/$/, '');
-
-  const topicsStr = topics.categories
-    .map((category) => `- **${category.title}:** ${category.skills.map((item) => item.name).join(', ')}`)
-    .join('\n');
-
-  const writingStr = writing
-    .map((item) => `- **${item.role}** - ${item.company} (${item.period})\n  * ${item.description}`)
-    .join('\n');
-
-  const notesStr = notes
-    .map((item) => `- **${item.title}:** ${item.description}${item.link ? ` (${item.link})` : ''}`)
-    .join('\n');
-
-  const socialsStr = home.socials
+  const siteUrl = (home.siteUrl || 'https://lulietlyan.github.io').replace(/\/$/, '');
+  const forest = await getTopicForest();
+  const socials = home.socials
     .filter((item) => item.url && item.url !== '#' && item.url !== '')
     .map((item) => `- **${item.name}:** ${item.url}`)
     .join('\n');
@@ -29,25 +26,19 @@ export const GET: APIRoute = async () => {
 > ${home.description}
 
 ## Overview
-${home.name} publishes ${home.jobTitle || 'personal essays and notes'}${home.location ? ` from ${home.location}` : ''}. ${home.description}
+${home.name} writes notes on Computer Network, Operating System, MySQL, Redis, Message Queue, Golang, and Projects.
 
 ## Key Information
-${home.location ? `- **Location:** ${home.location}` : ''}
 ${home.availability ? `- **Status:** ${home.availability}` : ''}
 - **Website:** ${siteUrl}
+- **Author:** ${home.name} / LulietLyan
 
 ## Topics
-${topicsStr}
-
-## Latest Writing
-${writingStr}
-
-## Featured Notes
-${notesStr}
+${renderTree(forest)}
 
 ## Contact & Links
 - **Website:** ${siteUrl}
-${socialsStr}
+${socials}
 `;
 
   return new Response(markdown.trim() + '\n', {
