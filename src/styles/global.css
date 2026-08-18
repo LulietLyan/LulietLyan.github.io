@@ -127,6 +127,105 @@
   .launching {
     animation: launch 0.5s ease-in forwards;
   }
+
+  .blog-prose {
+    color: var(--color-subtext);
+    font-size: 1.05rem;
+    line-height: 1.85;
+  }
+
+  .blog-prose > :first-child {
+    margin-top: 0;
+  }
+
+  .blog-prose h1,
+  .blog-prose h2,
+  .blog-prose h3,
+  .blog-prose h4 {
+    color: var(--color-maintext);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 2rem 0 0.8rem;
+  }
+
+  .blog-prose h1 { font-size: 2rem; }
+  .blog-prose h2 { font-size: 1.5rem; }
+  .blog-prose h3 { font-size: 1.2rem; }
+
+  .blog-prose p,
+  .blog-prose ul,
+  .blog-prose ol,
+  .blog-prose pre,
+  .blog-prose blockquote,
+  .blog-prose table {
+    margin: 1rem 0;
+  }
+
+  .blog-prose a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .blog-prose ul,
+  .blog-prose ol {
+    padding-left: 1.4rem;
+  }
+
+  .blog-prose li {
+    margin: 0.35rem 0;
+  }
+
+  .blog-prose code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.86em;
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
+    border-radius: 0.35rem;
+    padding: 0.1rem 0.35rem;
+  }
+
+  .blog-prose pre {
+    overflow-x: auto;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 14%, transparent);
+    padding: 1rem 1.1rem;
+    background: color-mix(in srgb, var(--color-background), black 18%);
+  }
+
+  .blog-prose pre code {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: inherit;
+  }
+
+  .blog-prose blockquote {
+    border-left: 3px solid var(--color-accent);
+    padding-left: 1rem;
+    color: var(--color-maintext);
+  }
+
+  .blog-prose hr {
+    border: 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
+    margin: 2rem 0;
+  }
+
+  .blog-prose table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+
+  .blog-prose th,
+  .blog-prose td {
+    border: 1px solid color-mix(in srgb, var(--color-accent) 16%, transparent);
+    padding: 0.5rem 0.7rem;
+    text-align: left;
+  }
 }
 
 /* Custom Scrollbar for a cleaner look */

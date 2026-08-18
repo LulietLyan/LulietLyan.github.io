@@ -1,0 +1,31 @@
+---
+import PageShell from '../../components/page-shell.astro';
+import TopicCard from '../../components/topic-card.astro';
+import { getTopicForest } from '../../utils/topics';
+
+const forest = await getTopicForest();
+---
+
+<PageShell title="Topics · Lyan" description="Lyan 的专题索引：Computer Network、Operating System、MySQL、Redis、Message Queue、Golang、Projects。">
+  <section class="section-container max-w-6xl mx-auto">
+    <div class="mb-12">
+      <p class="font-mono text-xs uppercase tracking-[0.24em] text-accent/80 mb-3">Archive</p>
+      <h1 class="text-4xl md:text-5xl font-heading font-bold text-maintext mb-4">
+        Topics
+      </h1>
+      <p class="text-subtext font-body max-w-2xl leading-relaxed">
+        按专题阅读。每个专栏都是一个文件夹，专栏里还可以再开子栏目，层数不限。
+      </p>
+    </div>
+
+    {forest.length > 0 ? (
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {forest.map((topic) => (
+          <TopicCard topic={topic} eyebrow="专栏" />
+        ))}
+      </div>
+    ) : (
+      <p class="text-subtext">还没有专题。在 <code class="text-accent">topics/</code> 下新建文件夹并写 README 即可。</p>
+    )}
+  </section>
+</PageShell>

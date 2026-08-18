@@ -1,0 +1,105 @@
+---
+import { render } from 'astro:content';
+import PageShell from '../../components/page-shell.astro';
+import Breadcrumbs from '../../components/breadcrumbs.astro';
+import TopicCard from '../../components/topic-card.astro';
+import {
+  breadcrumbsFor,
+  flattenTopicNodes,
+  getTopicForest,
+  splitChildren,
+  type TopicNode,
+} from '../../utils/topics';
+
+export async function getStaticPaths() {
+  const forest = await getTopicForest();
+  return flattenTopicNodes(forest).map((node) => ({
+    params: { slug: node.id },
+    props: { node, forest },
+  }));
+}
+
+interface Props {
+  node: TopicNode;
+  forest: TopicNode[];
+}
+
+const { node, forest } = Astro.props;
+const crumbs = breadcrumbsFor(node.id, forest);
+const { columns, articles } = splitChildren(node);
+const rendered = node.entry ? await render(node.entry) : null;
+const Content = rendered?.Content;
+const description = node.description || `${node.title} · Lyan`;
+---
+
+<PageShell title={`${node.title} · Lyan`} description={description}>
+  <article class="section-container max-w-3xl mx-auto">
+    <Breadcrumbs items={crumbs} />
+
+    <header class="mt-8 mb-10">
+      <p class="font-mono text-xs uppercase tracking-[0.24em] text-accent/80 mb-3">
+        {node.isColumn || node.children.length > 0 ? 'Column' : 'Note'}
+      </p>
+      <h1 class="text-4xl md:text-5xl font-heading font-bold text-maintext tracking-tight">
+        {node.title}
+      </h1>
+      {node.description && (
+        <p class="mt-4 text-lg text-subtext font-body leading-relaxed">
+          {node.description}
+        </p>
+      )}
+    </header>
+
+    {Content && (
+      <div class="blog-prose">
+        <Content />
+      </div>
+    )}
+
+    {!Content && node.children.length === 0 && (
+      <p class="text-subtext font-body">
+        这个栏目还是空的。在对应目录里写 <code class="text-accent">README.md</code> 或新建 <code class="text-accent">.md</code> 文件即可。
+      </p>
+    )}
+
+    {columns.length > 0 && (
+      <section class="mt-16">
+        <h2 class="text-2xl font-heading font-bold text-maintext mb-6 flex items-center gap-3">
+          <span class="text-accent">/</span> 子栏目
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {columns.map((child) => (
+            <TopicCard topic={child} />
+          ))}
+        </div>
+      </section>
+    )}
+
+    {articles.length > 0 && (
+      <section class="mt-16">
+        <h2 class="text-2xl font-heading font-bold text-maintext mb-6 flex items-center gap-3">
+          <span class="text-accent">/</span> 文章
+        </h2>
+        <ul class="space-y-3">
+          {articles.map((article) => (
+            <li>
+              <a
+                href={article.href}
+                class="group flex items-baseline justify-between gap-4 rounded-xl border border-accent/10 bg-accent/5 px-4 py-3 hover:border-accent/40 transition-colors"
+              >
+                <span class="font-heading font-semibold text-maintext group-hover:text-accent transition-colors">
+                  {article.title}
+                </span>
+                {article.date && (
+                  <time class="font-mono text-xs text-subtext shrink-0" datetime={article.date.toISOString()}>
+                    {article.date.toISOString().slice(0, 10)}
+                  </time>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+  </article>
+</PageShell>

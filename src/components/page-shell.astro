@@ -1,0 +1,30 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from './nav.astro';
+import Footer from './footer.astro';
+import home from '../data/home.json';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = home.description } = Astro.props;
+---
+
+<Layout
+  title={title}
+  personName={home.name}
+  description={description}
+  jobTitle={home.jobTitle}
+  keywords={home.keywords}
+  siteUrl={home.siteUrl}
+  twitterHandle={home.twitterHandle}
+  ogImageUrl={home.ogImageUrl}
+  lang={home.lang}
+  socials={home.socials}
+>
+  <Nav />
+  <slot />
+  <Footer />
+</Layout>
