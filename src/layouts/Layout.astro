@@ -74,7 +74,9 @@ const ogLocale = lang.includes('_')
   ? lang
   : lang.includes('-')
     ? lang.replace('-', '_')
-    : `${lang}_${lang.toUpperCase()}`;
+    : lang === 'en'
+      ? 'en_US'
+      : `${lang}_${lang.toUpperCase()}`;
 ---
 
 <!doctype html>
