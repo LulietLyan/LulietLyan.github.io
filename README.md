@@ -4,22 +4,25 @@
 
 <div id="user-content-toc">
   <ul align="center">
-    <summary><h1 style="display: inline-block"><b>Personal Blog: Astro Static Site</b></h1></summary>
+    <summary><h1 style="display: inline-block"><b>Lyan's Notes</b></h1></summary>
     <a href="#quick-start"><strong>Quick Start »</strong></a>
     <br />
-    <a href="#deployment">Deployment</a>
+    <a href="#topics">Topics</a>
     &middot;
-    <a href="#project-structure">Structure</a>
+    <a href="#writing">Writing</a>
     &middot;
     <a href="#contact">Contact</a>
   </ul>
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Astro-6.1.3-ff5d01?style=for-the-badge&logo=astro&logoColor=white" alt="Astro" />
-  <img src="https://img.shields.io/badge/Tailwind_CSS-4.2.0-38bdf8?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
-  <img src="https://img.shields.io/badge/GitHub_Pages-Ready-222222?style=for-the-badge&logo=githubpages&logoColor=white" alt="GitHub Pages ready" />
-  <img src="https://img.shields.io/badge/Package_Manager-npm-cb3837?style=for-the-badge&logo=npm&logoColor=white" alt="npm" />
+  <img src="https://img.shields.io/badge/Computer_Network-Ready-4D5F47?style=for-the-badge" alt="Computer Network" />
+  <img src="https://img.shields.io/badge/Operating_System-Ready-4D5F47?style=for-the-badge" alt="Operating System" />
+  <img src="https://img.shields.io/badge/MySQL-Ready-4D5F47?style=for-the-badge" alt="MySQL" />
+  <img src="https://img.shields.io/badge/Redis-Ready-4D5F47?style=for-the-badge" alt="Redis" />
+  <img src="https://img.shields.io/badge/Message_Queue-Ready-4D5F47?style=for-the-badge" alt="Message Queue" />
+  <img src="https://img.shields.io/badge/Golang-Ready-4D5F47?style=for-the-badge" alt="Golang" />
+  <img src="https://img.shields.io/badge/Projects-Standby-222222?style=for-the-badge" alt="Projects" />
 </p>
 
 <p align="center">
@@ -32,14 +35,14 @@
 # Table of Contents
 
 - [Project Background](#project-background)
-  - [Design Direction](#design-direction)
+- [Topics](#topics)
 - [Quick Start](#quick-start)
   - [Install Dependencies](#install-dependencies)
   - [Start Development Server](#start-development-server)
   - [Build for Production](#build-for-production)
+- [Writing](#writing)
 - [Deployment](#deployment)
 - [Project Structure](#project-structure)
-- [Content Editing](#content-editing)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [Contact](#contact)
@@ -47,19 +50,23 @@
 
 # Project Background
 
-This repository contains a personal blog rebuilt from an Astro career portfolio template. The previous site was replaced with a cleaner writing-focused experience: a hero section, latest writing timeline, featured notes, topic index, contact links, and GitHub Pages deployment workflow.
+This is **Lyan**'s public notebook.
 
-The site is intentionally lightweight. It uses local JSON data, Astro static generation, Tailwind CSS, and a small set of reusable components.
+The site collects notes on systems and software: computer networks, operating systems, MySQL, Redis, message queues, Golang, and later project write-ups. The homepage is a short introduction; the real archive lives under topic columns that can nest as deep as needed.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Design Direction
+# Topics
 
-- Keep the first screen focused on the author and the writing identity.
-- Prefer a dark editorial style with subtle motion and readable layouts.
-- Avoid unnecessary project scaffolding, repository metadata, and unused template files.
-- Keep content easy to edit through JSON files instead of a CMS.
-- Deploy automatically with GitHub Actions and GitHub Pages.
+| Column | What it is for |
+| --- | --- |
+| [Computer Network](./topics/computer-network/README.md) | Links, routing, HTTP, TLS |
+| [Operating System](./topics/operating-system/README.md) | Processes, memory, files, concurrency |
+| [MySQL](./topics/mysql/README.md) | Storage, indexes, transactions, SQL |
+| [Redis](./topics/redis/README.md) | Data structures, persistence, cache |
+| [Message Queue](./topics/message-queue/README.md) | Async, peaks, delivery semantics |
+| [Golang](./topics/golang/README.md) | Language, concurrency, engineering |
+| [Projects](./topics/projects/README.md) | Reserved for project notes and nested sub-columns |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -77,7 +84,7 @@ npm install
 npm run dev
 ```
 
-The local site will be served by Astro. Open the URL printed in the terminal.
+Open the URL printed in the terminal to preview the blog locally.
 
 ## Build for Production
 
@@ -89,23 +96,46 @@ The production output is generated in `dist/`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-# Deployment
+# Writing
 
-GitHub Pages deployment is configured in:
+All posts live in `topics/`. Edit Markdown locally, then commit.
+
+- A folder is a column.
+- That folder's `README.md` is the column homepage.
+- Other `.md` files in the folder are articles.
+- Nested folders are nested columns. There is no depth limit.
+
+Example:
 
 ```text
-.github/workflows/deploy.yml
+topics/projects/README.md
+topics/projects/foo/README.md
+topics/projects/foo/bar/README.md
+topics/projects/foo/bar/note.md
 ```
 
-The workflow follows the referenced `career-portfolio-template-master` deployment style:
+Optional frontmatter:
 
-- `actions/checkout@v6`
-- `withastro/action@v5`
-- `actions/deploy-pages@v4`
+```yaml
+---
+title: Computer Network
+description: A short summary for cards and RSS.
+icon: mdi:lan
+order: 1
+date: 2026-08-18
+draft: false
+tags:
+  - Network
+---
+```
 
-Deployment runs automatically when changes are pushed to the `main` branch. It can also be triggered manually from the GitHub Actions tab.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Before using GitHub Pages, make sure the repository Pages source is set to **GitHub Actions** in the repository settings.
+# Deployment
+
+Push to `main`. GitHub Actions publishes the site to GitHub Pages.
+
+The Pages source should be set to **GitHub Actions** in the repository settings.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -117,70 +147,43 @@ Before using GitHub Pages, make sure the repository Pages source is set to **Git
 ├── image/
 ├── public/
 ├── src/
-│   ├── assets/
-│   ├── components/
-│   ├── data/
-│   ├── layouts/
-│   ├── pages/
-│   ├── styles/
-│   └── utils/
-├── astro.config.mjs
+├── topics/
+│   ├── computer-network/README.md
+│   ├── operating-system/README.md
+│   ├── mysql/README.md
+│   ├── redis/README.md
+│   ├── message-queue/README.md
+│   ├── golang/README.md
+│   └── projects/README.md
 ├── package.json
-├── package-lock.json
-├── README.md
-└── tsconfig.json
+└── README.md
 ```
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-# Content Editing
-
-Most visible content is controlled by JSON files:
-
-- `src/data/home.json`: author name, hero copy, SEO fields, and social links
-- `src/data/writing.json`: latest writing entries
-- `src/data/projects.json`: featured note cards
-- `src/data/tech.json`: topic index
-
-Main visual and layout files:
-
-- `src/components/home.astro`
-- `src/components/writing.astro`
-- `src/components/projects.astro`
-- `src/components/tech.astro`
-- `src/components/contact.astro`
-- `src/styles/global.css`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 # Roadmap
 
-- [x] Rebuild the site as a personal blog
-- [x] Add GitHub Pages deployment workflow
-- [x] Add project README based on the README template
-- [ ] Replace placeholder profile content with final personal details
-- [ ] Add real article pages or a content collection
-- [ ] Add RSS generation if long-form posts are introduced
+- [x] Put Lyan on the homepage
+- [x] Open the seven topic columns
+- [x] Allow unlimited nested sub-columns
+- [x] Write locally through `topics/**/README.md`
+- [ ] Fill each column with real notes
+- [ ] Add project sub-columns when a project is worth documenting
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 # Contributing
 
-This is a personal blog repository. Contributions are not expected by default, but small fixes can follow the normal GitHub flow:
-
-1. Fork the repository.
-2. Create a new branch.
-3. Make the change.
-4. Run `npm run build`.
-5. Open a pull request.
+This is a personal notebook. The only author is **LulietLyan**. External pull requests are not expected.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 # Contact
 
-- **Maintainer:** LulietLyan
+- **Author:** Lyan / LulietLyan
 - **Email:** 1078823037@qq.com
 - **GitHub:** [LulietLyan](https://github.com/LulietLyan)
+- **Site:** [lulietlyan.github.io](https://lulietlyan.github.io)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
