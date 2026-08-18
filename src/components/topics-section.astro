@@ -1,0 +1,78 @@
+---
+import TopicCard from './topic-card.astro';
+import { getTopicForest } from '../utils/topics';
+
+const topics = await getTopicForest();
+---
+
+<section id="topics" class="section-container overflow-hidden">
+  <div class="container mx-auto">
+    <div class="topics-header flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+      <div>
+        <h2 class="text-3xl md:text-4xl font-heading font-bold text-maintext mb-2 flex items-center gap-4">
+          <span class="text-accent">/</span> Topics
+        </h2>
+        <p class="text-subtext font-body text-sm max-w-md">
+          七个常驻专栏。每个专栏都可以继续向下开子栏目，层数不限。
+        </p>
+      </div>
+      <a
+        href="/topics"
+        class="inline-flex items-center justify-center px-5 py-2 rounded-full border border-accent/20 text-accent/80 font-body text-sm hover:border-accent/60 hover:bg-accent/5 transition-all duration-300"
+      >
+        全部专题
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {topics.map((topic) => (
+        <TopicCard topic={topic} eyebrow="专栏" />
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .topics-header,
+  #topics .topic-card {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .topics-header.reveal,
+  #topics .topic-card.reveal {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+
+<script>
+  function revealTopics() {
+    const header = document.querySelector('.topics-header');
+    const cards = document.querySelectorAll('#topics .topic-card');
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const target = entry.target as HTMLElement;
+        if (target.classList.contains('topics-header')) {
+          target.classList.add('reveal');
+        } else {
+          const index = Array.from(cards).indexOf(target);
+          setTimeout(() => target.classList.add('reveal'), (index % 3) * 90);
+        }
+        observer.unobserve(target);
+      });
+    }, {
+      threshold: 0.12,
+      rootMargin: '0px 0px -40px 0px',
+    });
+
+    if (header) observer.observe(header);
+    cards.forEach((card) => observer.observe(card));
+  }
+
+  revealTopics();
+  document.addEventListener('astro:after-swap', revealTopics);
+</script>

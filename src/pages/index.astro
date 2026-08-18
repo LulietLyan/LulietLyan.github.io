@@ -2,11 +2,9 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/nav.astro";
 import Home from "../components/home.astro";
-import Tech from "../components/tech.astro";
-import Projects from "../components/projects.astro";
+import TopicsSection from "../components/topics-section.astro";
 import Contact from "../components/contact.astro";
 import Footer from "../components/footer.astro";
-import Writing from "../components/writing.astro";
 import localData from '../data/home.json';
 
 interface Social {
@@ -75,9 +73,7 @@ const {
 >
   <Nav />
 	<Home />
-	<Writing />
-	<Projects />
-	<Tech />
+	<TopicsSection />
 	<Contact />
 	<Footer />
 </Layout>

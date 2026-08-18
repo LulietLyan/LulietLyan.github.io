@@ -1,56 +1,42 @@
 {
-  "name": "Your Name",
+  "name": "Lyan",
   "photoUrl": "favicon.svg",
-  "location": "Internet / Home Office",
+  "location": "",
   "availability": "Writing in public",
-  "description": "A personal blog about building software, reading deeply, and turning scattered notes into durable essays.",
-  "descriptionHtml": "A personal blog about <span class='text-accent font-bold'>building software</span>, reading deeply, and turning scattered notes into <span class='text-accent font-bold'>durable essays</span>.",
-  "webpageTitle": "Your Name | Personal Blog",
-  "primaryCtaLabel": "Start Reading",
-  "primaryCtaUrl": "#writing",
-  "secondaryCtaLabel": "Browse Topics",
-  "secondaryCtaUrl": "#topics",
-  "jobTitle": "Notes, essays, and field reports",
-  "keywords": "personal blog, software writing, essays, notes, research, web development",
-  "siteUrl": "https://your-domain.com",
-  "lang": "en",
+  "description": "Lyan 的个人博客。记录计算机网络、操作系统、MySQL、Redis、消息队列、Golang 与项目笔记。",
+  "descriptionHtml": "记录 <span class='text-accent font-bold'>计算机网络</span>、<span class='text-accent font-bold'>操作系统</span>、数据库与消息队列，以及 <span class='text-accent font-bold'>Golang</span> 和项目里真正踩过的坑。",
+  "webpageTitle": "Lyan",
+  "primaryCtaLabel": "开始阅读",
+  "primaryCtaUrl": "/topics",
+  "secondaryCtaLabel": "关注更新",
+  "secondaryCtaUrl": "/#contact",
+  "jobTitle": "Computer Network · OS · Data Systems · Go",
+  "keywords": "Lyan, LulietLyan, Computer Network, Operating System, MySQL, Redis, Message Queue, Golang",
+  "siteUrl": "https://lulietlyan.github.io",
+  "lang": "zh-CN",
   "twitterHandle": "",
   "ogImageUrl": "/placeholder.jpeg",
   "socials": [
     {
       "name": "GitHub",
-      "url": "https://github.com/[YOUR_USER_NAME]",
+      "url": "https://github.com/LulietLyan",
       "icon": "mdi:github",
-      "label": "View Profile",
+      "label": "查看仓库",
       "showInContact": true
     },
     {
-      "name": "LinkedIn",
-      "url": "#",
-      "icon": "mdi:linkedin",
-      "label": "Connect",
-      "showInContact": false
-    },
-    {
       "name": "Email",
-      "url": "mailto:your-mail@example.com",
+      "url": "mailto:1078823037@qq.com",
       "icon": "mdi:email",
-      "label": "Send Email",
+      "label": "写信",
       "showInContact": true
     },
     {
       "name": "RSS",
       "url": "/rss.xml",
       "icon": "mdi:rss",
-      "label": "Subscribe",
+      "label": "订阅",
       "showInContact": true
-    },
-    {
-      "name": "Mastodon",
-      "url": "#",
-      "icon": "mdi:mastodon",
-      "label": "View Profile",
-      "showInContact": false
     }
   ]
 }
