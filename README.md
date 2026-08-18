@@ -181,7 +181,7 @@ This is a personal notebook. The only author is **LulietLyan**. External pull re
 # Contact
 
 - **Author:** Lyan / LulietLyan
-- **Email:** 1078823037@qq.com
+- **Email:** lulietlyan@gmail.com
 - **GitHub:** [LulietLyan](https://github.com/LulietLyan)
 - **Site:** [lulietlyan.github.io](https://lulietlyan.github.io)
 
