@@ -1,6 +1,6 @@
 ---
 title: Redis
-description: Redis 专栏，记录数据结构、持久化、复制与缓存实践。
+description: Notes on data structures, persistence, replication, and caching.
 icon: mdi:lightning-bolt
 order: 4
 tags:
@@ -8,6 +8,6 @@ tags:
   - Cache
 ---
 
-这个专栏用来放 Redis 笔记。
+Notes on Redis.
 
-数据结构、过期策略、持久化、集群与常见缓存模式都可以写在这里。
+Data structures, expiry, persistence, clustering, and cache patterns belong here.

@@ -1,10 +1,10 @@
 ---
 title: Nested Columns
-description: 用来说明 Projects 下可以继续开子栏目。正式项目笔记可以取代这一页。
+description: A sample sub-column under Projects. Replace it with a real project note when ready.
 icon: mdi:folder-outline
 order: 1
 ---
 
-这是 `Projects` 下面的一层子栏目。
+A nested column under `Projects`.
 
-继续在本目录新建文件夹，还可以再往下嵌套。
+Create another folder here to nest one level deeper.

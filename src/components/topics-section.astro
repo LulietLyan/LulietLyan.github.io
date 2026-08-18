@@ -13,20 +13,20 @@ const topics = await getTopicForest();
           <span class="text-accent">/</span> Topics
         </h2>
         <p class="text-subtext font-body text-sm max-w-md">
-          七个常驻专栏。每个专栏都可以继续向下开子栏目，层数不限。
+          Seven standing columns. Each one can nest sub-columns without a depth limit.
         </p>
       </div>
       <a
         href="/topics"
         class="inline-flex items-center justify-center px-5 py-2 rounded-full border border-accent/20 text-accent/80 font-body text-sm hover:border-accent/60 hover:bg-accent/5 transition-all duration-300"
       >
-        全部专题
+        All topics
       </a>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
       {topics.map((topic) => (
-        <TopicCard topic={topic} eyebrow="专栏" />
+        <TopicCard topic={topic} eyebrow="Column" />
       ))}
     </div>
   </div>

@@ -1,12 +1,12 @@
 ---
 title: MySQL
-description: MySQL 专栏，记录存储、索引、事务与 SQL 实践。
+description: Notes on storage, indexes, transactions, and SQL.
 icon: mdi:database
 order: 3
 tags:
   - Database
 ---
 
-这个专栏用来放 MySQL 笔记。
+Notes on MySQL.
 
-索引、锁、事务、执行计划等内容可以按主题拆成子栏目。
+Indexes, locks, transactions, and query plans can be split into sub-columns.

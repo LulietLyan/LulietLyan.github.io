@@ -8,7 +8,7 @@ interface Props {
 }
 
 const { topic, eyebrow } = Astro.props;
-const kind = topic.isColumn || topic.children.length > 0 ? '专栏' : '文章';
+const kind = topic.isColumn || topic.children.length > 0 ? 'Column' : 'Note';
 ---
 
 <a
@@ -44,12 +44,12 @@ const kind = topic.isColumn || topic.children.length > 0 ? '专栏' : '文章';
       ))}
       {topic.children.length > 0 && (
         <span class="rounded-md text-[10px] px-2 py-1 bg-accent/5 border border-accent/10 text-accent/80">
-          {topic.children.length} 篇
+          {topic.children.length} items
         </span>
       )}
     </div>
     <span class="text-accent text-xs font-body font-semibold tracking-wide inline-flex items-center gap-1">
-      进入
+      Open
       <Icon name="mdi:arrow-right" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
     </span>
   </div>

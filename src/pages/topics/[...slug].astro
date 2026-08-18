@@ -58,14 +58,14 @@ const description = node.description || `${node.title} · Lyan`;
 
     {!Content && node.children.length === 0 && (
       <p class="text-subtext font-body">
-        这个栏目还是空的。在对应目录里写 <code class="text-accent">README.md</code> 或新建 <code class="text-accent">.md</code> 文件即可。
+        This column is empty. Add a <code class="text-accent">README.md</code> or a new <code class="text-accent">.md</code> file in this folder.
       </p>
     )}
 
     {columns.length > 0 && (
       <section class="mt-16">
         <h2 class="text-2xl font-heading font-bold text-maintext mb-6 flex items-center gap-3">
-          <span class="text-accent">/</span> 子栏目
+          <span class="text-accent">/</span> Sub-columns
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           {columns.map((child) => (
@@ -78,7 +78,7 @@ const description = node.description || `${node.title} · Lyan`;
     {articles.length > 0 && (
       <section class="mt-16">
         <h2 class="text-2xl font-heading font-bold text-maintext mb-6 flex items-center gap-3">
-          <span class="text-accent">/</span> 文章
+          <span class="text-accent">/</span> Notes
         </h2>
         <ul class="space-y-3">
           {articles.map((article) => (

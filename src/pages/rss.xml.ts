@@ -34,7 +34,7 @@ export const GET: APIRoute = async () => {
     <title>${escapeXml(home.name)}</title>
     <link>${siteUrl}</link>
     <description>${escapeXml(home.description)}</description>
-    <language>${home.lang || 'zh-CN'}</language>
+    <language>${home.lang || 'en'}</language>
 ${items}
   </channel>
 </rss>

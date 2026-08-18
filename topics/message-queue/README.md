@@ -1,12 +1,12 @@
 ---
 title: Message Queue
-description: 消息队列专栏，记录异步、削峰与投递语义。
+description: Notes on async work, load shedding, and delivery semantics.
 icon: mdi:mailbox-outline
 order: 5
 tags:
   - Messaging
 ---
 
-这个专栏用来放消息队列笔记。
+Notes on message queues.
 
-Kafka、RabbitMQ 或其他队列都可以作为子栏目，互不影响。
+Kafka, RabbitMQ, or any other broker can sit in its own sub-column.
