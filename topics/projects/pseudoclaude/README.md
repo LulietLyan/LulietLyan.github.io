@@ -23,11 +23,10 @@ PseudoClaude 是我用 Go 写的终端 Coding Agent。它把大模型、工具�
 5. [长会话不失忆：Conversation、Session、Memory 与上下文压缩](./05-context-memory-compact)
 6. [把能力做成生态：MCP、Skill 与延迟加载](./06-mcp-skills-extension)
 7. [从子 Agent 到 Team Lead：后台任务、Git worktree 与 mailbox 协作](./07-subagents-team-worktree)
-8. [从 vibe coding 到真正拥有项目](./08-from-vibe-to-ownership)
+8. [从项目实现到工程掌控](./08-engineering-ownership)
 
 读完这个系列，你应该能回答三个问题：
 
 - 一个 Coding Agent 的主循环到底是什么。
 - 如何让模型读文件、改代码、跑命令，同时把风险关在笼子里。
-- 如何把一个 vibe coding 出来的项目，拆成自己能讲清楚、能维护、能继续演进的系统。
-
+- 如何把一个复杂项目，拆成自己能讲清楚、能维护、能继续演进的系统。
