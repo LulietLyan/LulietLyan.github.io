@@ -10,9 +10,9 @@ tags:
   - Go
 ---
 
-PseudoClaude 里最值得先读透的文件，是 `internal/agent/runner.go`。
+PseudoClaude 的执行主线集中在 `internal/agent/runner.go`。
 
-这不是因为它代码最多，而是因为它回答了 Coding Agent 最核心的问题：
+该文件回答了 Coding Agent 执行层的核心问题：
 
 ```text
 模型说要调用工具之后，程序到底怎么继续？
@@ -92,7 +92,7 @@ ModeChat
   -> 暴露正常工具
 ```
 
-这就是 Plan Mode 的实现重点：不只是提示模型“不要修改”，而是从工具列表和执行选项两边同时限制。
+Plan Mode 的实现重点在于双重约束：请求阶段只暴露只读工具，执行阶段也通过 `AllowedSafety` 限制只读工具。
 
 ## Stable System 和 Dynamic Environment
 
@@ -224,7 +224,7 @@ Act: 调用 edit_file 或 run_command
 Observe: 继续回灌
 ```
 
-没有这个循环，工具调用只是一个孤立动作。只有回灌之后，模型才能把观察结果纳入下一步计划。
+没有这个循环，工具调用会停留在单次动作。工具结果被回灌后，模型才能把观察结果纳入下一步推理。
 
 ## Provider 适配：统一消息、工具和 usage
 
@@ -297,4 +297,3 @@ Task/Team 负责复用 Runner 做后台和协作
 ```
 
 Runner 是中心，但它不独裁。它通过接口和事件把其它模块连起来，这也是这个项目能继续扩展的原因。
-

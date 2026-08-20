@@ -1,6 +1,6 @@
 ---
 title: 从子 Agent 到 Team Lead：后台任务、Git worktree 与 mailbox 协作
-description: PseudoClaude 如何把 Agent 自己也做成工具，并用 task、worktree、team、mailbox 支撑并行协作。
+description: PseudoClaude 如何把 Agent 本身建模为工具，并用 task、worktree、team、mailbox 支撑并行协作。
 date: 2026-08-21
 order: 7
 tags:
@@ -10,9 +10,9 @@ tags:
   - Team
 ---
 
-PseudoClaude 里最有意思的一层，是把 Agent 自己也做成工具。
+PseudoClaude 的一个关键设计点，是把 Agent 本身建模为工具。
 
-这听起来有点绕：Agent 不是运行主体吗，为什么还会是工具？
+这需要先区分运行主体和可委派能力：主 Agent 是运行主体，而子 Agent 可以作为工具调用触发的执行单元。
 
 答案在 `internal/agent/agent_tool.go`。模型如果想委派任务，不是调用某个隐藏 API，而是正常发起一个名为 `Agent` 的 tool call：
 
@@ -160,7 +160,7 @@ if def.Permission == subagent.PermissionPlan {
 
 后台 subagent 默认不能弹审批。如果需要 ask，默认拒绝。
 
-这让 subagent 不是“另一个无限权限主 Agent”，而是一个被角色定义约束过的 Runner。
+这让 subagent 成为被角色定义约束过的 Runner，而不是拥有完整主 Agent 权限的独立入口。
 
 ## 前台运行和后台运行
 
@@ -416,7 +416,7 @@ Process unread team updates and continue coordinating the team.
 
 下一轮 Runner 的 reminder 会调用 `LeadReminder()`，把未读成员更新注入 prompt。
 
-这不是强行打断模型流，而是在下一轮上下文里提醒 Lead 处理团队更新。
+这个机制不会中断正在运行的模型流，而是在下一轮上下文中提醒 Lead 处理团队更新。
 
 ## idle 成员如何被唤醒
 
@@ -433,7 +433,7 @@ ResumeMember(...)
 You have new unread team mailbox messages. Read the incoming team messages in the system reminder, handle the request, and use SendMessage to report results or ask follow-up questions.
 ```
 
-真正的消息内容不在唤醒 prompt 里，而是在 mailbox 中。成员下一轮运行时，`TeamRunContext.Reminder()` 会读取自己的未读消息，并注入：
+消息正文不放在唤醒 prompt 中，而是保存在 mailbox 中。成员下一轮运行时，`TeamRunContext.Reminder()` 会读取自己的未读消息，并注入：
 
 ```text
 <incoming-messages>
@@ -480,7 +480,19 @@ PseudoClaude 的多 Agent 可以理解成三层：
 
 它们都复用 Runner，但生命周期和协作方式不同。
 
-## 设计复盘
+## Worktree 清理策略
+
+worktree 隔离的关键不仅是创建隔离目录，还包括运行结束后的状态判断。PseudoClaude 在子执行单元完成后会尝试 `AutoCleanup`，但清理前会检查三类状态：
+
+- 是否存在未提交变更。
+- 是否产生了新的本地提交。
+- 是否存在未推送提交。
+
+如果 worktree 中存在有价值的状态，系统不会直接删除目录，而是把保留路径和原因附加到 Agent 工具结果中。这样父 Agent 或用户可以继续审查 worktree 内容，而不会因为自动清理丢失子 Agent 的工作结果。
+
+worktree 初始化还会同步本地工程环境。`internal/worktree/setup.go` 会复制 `.PseudoClaude` 下的配置、权限、hooks、agents、skills，复用 hooksPath 或 `.husky`，并对 `node_modules`、`.venv`、`vendor` 等大目录使用软链接。这可以减少重复依赖开销，同时保持子工作区与父工作区的本地执行环境一致。
+
+## 工程边界总结
 
 PseudoClaude 的多 Agent 不是简单“开多个模型请求并发跑”。
 
@@ -495,7 +507,7 @@ PseudoClaude 的多 Agent 不是简单“开多个模型请求并发跑”。
   -> mailbox 异步协作
 ```
 
-这种设计最值得学习的地方，是它没有把多 Agent 做成一个和主系统平行的新架构。
+这套设计没有把多 Agent 做成一个和主系统平行的新架构。
 
 `Agent` 仍然是 tool call。
 
@@ -508,4 +520,3 @@ PseudoClaude 的多 Agent 不是简单“开多个模型请求并发跑”。
 团队协作交给 mailbox。
 
 每层只做一件事，组合起来就能支持复杂任务拆解。
-

@@ -1,5 +1,5 @@
 ---
-title: 让模型安全地动手：工具系统、权限引擎与 Hook
+title: 让模型安全地执行动作：工具系统、权限引擎与 Hook
 description: PseudoClaude 如何让 LLM 读文件、改代码、跑命令，同时把副作用关进统一执行入口。
 date: 2026-08-21
 order: 4
@@ -10,7 +10,7 @@ tags:
   - Hook
 ---
 
-一个 Coding Agent 最危险也最有价值的能力，是“动手”。
+一个 Coding Agent 风险最高、价值也最高的能力，是在本地工程中执行动作。
 
 模型本身不能读文件、不能改代码、不能运行测试。它只能生成意图：
 
@@ -23,7 +23,7 @@ tags:
 }
 ```
 
-真正的 IO、副作用和风险，都发生在工具系统里。
+IO、副作用和风险都发生在工具系统内。
 
 所以 PseudoClaude 里最重要的工程边界之一，就是把所有工具调用收敛到一条统一路径：
 
@@ -227,7 +227,7 @@ executeOneTool
   -> EventToolCallDone
 ```
 
-也就是说，工具真正执行前，Hook 和权限都已经介入。
+因此，在调用具体 `Tool.Execute` 前，Hook 和权限系统已经完成介入。
 
 ## 权限系统：先沙箱和黑名单，再规则和模式
 
@@ -351,7 +351,7 @@ TUI 收到后进入 `stateApproving`。用户可以选择：
 
 如果选择 `allow forever`，会 `PersistLocalAllow(call)` 写入本地权限配置。
 
-这里的关键点是：审批不是工具内部做的，而是通过 Runner 事件流交给 TUI。后台 subagent 没有人审批，所以默认拒绝需要 ask 的操作。
+这里的关键点是：审批不在工具内部完成，而是通过 Runner 事件流交给 TUI。后台 subagent 没有人审批，所以默认拒绝需要 ask 的操作。
 
 ## Hook：权限之前的生命周期扩展点
 
@@ -406,7 +406,32 @@ is_error
 
 Hook 可以阻断，也可以注入 prompt。注入内容进入 `PromptQueue`，在 Runner 的 `reminder` 中被带入下一轮模型请求。
 
-## 为什么这套链路重要
+## 权限优先级和测试约束
+
+权限系统的优先级可以概括为：
+
+```text
+硬性安全检查
+  -> session/local/project/user 规则
+  -> permission mode fallback
+  -> interactive approval
+```
+
+硬性安全检查包括危险命令黑名单和路径沙箱。它们先于用户规则和权限模式执行。即使当前模式是 `bypassPermissions`，`rm -rf /` 这类危险命令仍会被 blacklist 拒绝，项目根目录外的路径访问仍会被 sandbox 拒绝。
+
+规则层分为 session、local、project、user。查询顺序是：
+
+```text
+session -> local -> project -> user
+```
+
+每一层内部先匹配 deny，再匹配 allow。`allow session` 会写入内存规则，`allow forever` 会持久化到 `.PseudoClaude/permissions.local.yaml`。
+
+这套优先级在 `internal/permission/engine_test.go` 中有明确测试：`TestEngine` 覆盖 blacklist、sandbox、project allow、local deny、default mode ask；`TestEngineRulePrecedence` 覆盖 session/local/project/user 的优先级。
+
+工具注册表也有独立测试。`internal/tools/registry_test.go` 验证未知工具不会执行、非法 JSON 不会执行、工具超时会返回 `timeout`、definition 排序稳定、默认工具描述包含关键使用约束。对 Agent 系统而言，这些不是辅助测试，而是工具执行边界的合同。
+
+## 工程边界总结
 
 如果工具调用散落在各处，很容易出现三类问题：
 
@@ -430,7 +455,6 @@ Team 工具
   -> Execute
 ```
 
-这就是让模型“安全地动手”的核心。
+这就是让模型安全执行动作的核心。
 
 模型可以大胆提出动作，但动作能不能发生，不由模型决定，而由工具执行器、权限引擎和 Hook 共同决定。
-

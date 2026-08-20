@@ -1,5 +1,5 @@
 ---
-title: 把能力做成生态：MCP、Skill 与延迟加载
+title: 扩展能力的边界：MCP、Skill 与延迟加载
 description: PseudoClaude 如何把内置工具之外的能力接入同一条 Agent 执行链路。
 date: 2026-08-21
 order: 6
@@ -184,7 +184,7 @@ Catalog 对外提供：
 m.runner.SkillsCatalog = m.promptSkillCatalog
 ```
 
-真正的 system prompt 里不是完整 Skill 内容，而是类似：
+实际 system prompt 中不是完整 Skill 内容，而是类似：
 
 ```text
 Available Skills:
@@ -229,7 +229,7 @@ for _, spec := range skill.Tools {
 }
 ```
 
-这意味着 Skill 不只是 prompt 文档，也可以带执行工具。
+这意味着 Skill 不仅是 prompt 文档，也可以携带可执行工具。
 
 ## Active Skills 如何进入下一轮 prompt
 
@@ -255,7 +255,7 @@ Catalog 摘要常驻
   -> Skill specialized tools 注册进 Registry
 ```
 
-这比“启动时全量加载所有说明”要省很多 token，也更符合 Agent 的使用方式：需要什么能力，再显式激活什么能力。
+相比启动时全量加载所有说明，延迟加载可以降低常驻 token 占用，并让能力激活变成显式动作。
 
 ## Skill Tool：把外部命令包装成工具
 
@@ -314,14 +314,12 @@ registry.Execute(...)
 
 这就是生态扩展的关键。
 
-## 设计复盘
+## 扩展入口总结
 
-如果一开始就把所有能力写死在 Runner 里，项目会很快变成一团。
+如果把所有能力写死在 Runner 中，Runner 会同时承担协议适配、工具发现、外部连接、prompt 组织和执行调度职责。PseudoClaude 将扩展入口拆成两类：
 
-PseudoClaude 把扩展点拆成了两种：
-
-- MCP：扩展“可以调用什么外部工具”。
-- Skill：扩展“模型应该按什么流程做事，以及必要时有哪些专用工具”。
+- MCP：扩展可调用的外部工具。
+- Skill：扩展任务流程说明，并在需要时提供专用工具。
 
 两者最终都回到同一条工具链：
 
@@ -333,5 +331,4 @@ Execute 统一执行
 Result 统一回灌
 ```
 
-这也是我理解 Agent 生态化后最重要的一点：生态不是把插件塞进系统，而是先把系统内部的边界抽清楚，让外部能力只能通过这些边界进入。
-
+因此，扩展能力不会绕过 Runner、Hook、Permission 和 Registry。外部能力只有先适配为内部工具定义或 active prompt，才能进入 Agent 主循环。

@@ -1,6 +1,6 @@
 ---
-title: 从零搭一个最小可用终端 Agent
-description: 先别急着做多 Agent。一个 Coding Agent 最小需要 TUI、Provider、Conversation 和工具回灌。
+title: 搭建一个最小可用终端 Agent
+description: 一个 Coding Agent 的最小实现需要 TUI、Provider、Conversation 和工具结果回灌。
 date: 2026-08-21
 order: 2
 tags:
@@ -10,7 +10,7 @@ tags:
   - Go
 ---
 
-如果从零写 PseudoClaude，我不会先碰 MCP、Skill、Team 这些高级能力。最小可用版本只需要四个东西：
+如果以最小可用版本为目标，PseudoClaude 不应首先实现 MCP、Skill、Team 这些扩展能力。基础闭环需要四个部分：
 
 ```text
 Terminal input
@@ -19,7 +19,7 @@ Terminal input
   -> Tool call and tool result feedback
 ```
 
-这篇先不讲完整源码，而是讲最小骨架怎么一步步长成现在的项目。
+本文先不展开完整源码，而是说明最小骨架如何逐步演进为当前项目结构。
 
 ## 第一步：终端界面只做状态机
 
@@ -70,7 +70,7 @@ EventStop
 EventError
 ```
 
-如果你自己从零搭，第一版可以更简单：
+最初版本可以进一步简化为：
 
 ```text
 用户输入
@@ -132,7 +132,7 @@ type StreamEvent struct {
 }
 ```
 
-从零做时，这就是第一个重要抽象：不要让主循环依赖具体模型 SDK。
+在这个阶段，第一个重要抽象是避免让主循环依赖具体模型 SDK。
 
 ## 第三步：Conversation 是事实源
 
@@ -171,7 +171,7 @@ type ToolResult struct {
 
 `Conversation.AddToolResult` 会把它包装成一个 `Role: "user"` 的消息。这符合主流 tool calling 协议：工具执行结果通常作为用户侧消息回传给模型。
 
-从零搭时，你可以先只保存文本消息：
+最小实现可以先只保存文本消息：
 
 ```text
 user -> assistant -> user -> assistant
@@ -293,4 +293,3 @@ Worktree Manager
 听起来多，但都是从最小骨架自然长出来的。
 
 我的经验是：先把 Runner loop 做对，再加功能。否则很容易做出一个“看起来能力很多，但每个能力都绕过主链路”的系统。
-

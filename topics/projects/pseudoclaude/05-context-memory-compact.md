@@ -1,6 +1,6 @@
 ---
-title: 长会话不失忆：Conversation、Session、Memory 与上下文压缩
-description: PseudoClaude 如何保存会话、恢复上下文、落盘大工具结果，并用两层压缩支撑长时间编程。
+title: 长会话状态管理：Conversation、Session、Memory 与上下文压缩
+description: PseudoClaude 如何保存会话、恢复上下文、落盘大工具结果，并用两层压缩支撑长时间任务。
 date: 2026-08-21
 order: 5
 tags:
@@ -10,7 +10,7 @@ tags:
   - Agent
 ---
 
-一个 Coding Agent 真正跑起来后，很快会遇到一个朴素问题：上下文会爆。
+一个 Coding Agent 进入连续工作后，很快会遇到上下文增长问题。
 
 模型读文件，工具结果可能几万字；模型跑测试，日志可能很长；用户连续聊几个小时，历史消息会不断累积。只靠“把全部 messages 塞回模型”是不可能长期工作的。
 
@@ -118,7 +118,7 @@ func (w *Writer) Hooks() conversation.Hooks {
 
 ## replace marker 为什么重要
 
-如果 JSONL 只是 append-only，那么压缩后的上下文很难恢复。因为旧消息仍在文件里，恢复时不知道哪些旧消息已经被摘要替换。
+如果 JSONL 只有 append 语义，压缩后的上下文很难恢复。旧消息仍在文件中，加载器无法判断哪些旧消息已经被摘要替换。
 
 所以 `replace` marker 的语义是：
 
@@ -314,7 +314,7 @@ Conversation.ReplaceMessages
 
 ## Recent 保留工具边界
 
-`internal/compact/recent.go` 里有一个细节：`SelectRecent` 不只是粗暴保留最后 N 条消息。
+`internal/compact/recent.go` 中的 `SelectRecent` 不是简单保留最后 N 条消息。
 
 如果保留起点落在某个 tool result 上，它会向前扩展到对应 tool call：
 
@@ -384,6 +384,29 @@ r.Memory.UpdateAsync(context.Background(), memory.UpdateInput{
 
 `Store.Apply` 会把 operation 写成 Markdown note，并更新 `MEMORY.md` 索引。
 
+在写入前，memory 包还会做结构校验和路径约束。`ValidateOperation` 会过滤未知 action、不完整字段和非法 level；`Store.NotePath` 拒绝空文件名、路径分隔符和越界路径。模型输出的 JSON operations 属于候选变更，最终是否写入文件由程序侧决定。
+
+## 恢复协议的边界
+
+Session 恢复不是简单读取最后一个文件快照，而是线性重放 JSONL。
+
+恢复规则包括：
+
+- 坏行计数后跳过，不中断整个恢复。
+- `replace` entry 会清空当前消息数组。
+- `message` entry 和旧格式空 type 会追加到当前消息数组。
+- 加载结束后检查悬挂 tool call，并截断到该 tool call 之前。
+
+悬挂 tool call 截断是一个容易忽略但很重要的协议边界。Provider 通常要求 assistant tool call 后必须有对应 tool result。如果程序在工具执行中途退出，JSONL 可能已经写入 assistant tool call，但还没写入 tool result。恢复时如果直接把这段上下文发给模型，provider 可能会拒绝请求。`session.Load` 的截断逻辑就是为了避免恢复出结构不完整的上下文。
+
+## 两层压缩的差异
+
+Layer 1 和 Layer 2 的区别不仅在于实现方式，也在于语义风险。
+
+Layer 1 工具结果落盘不会抽象原文。它把大体积 tool result 写入 `tool-results/<call_id>.txt`，在 conversation 中保留大小、路径和预览。这一步主要减少 token 占用，后续如果需要细节仍可重新读取原始文件。
+
+Layer 2 摘要压缩会改变信息形态。它调用 provider 生成历史摘要，再用“历史摘要 + 确认消息 + 边界提醒 + 最近消息”替换 conversation。因为摘要不可避免会丢失细节，所以实现会保留最近消息，并在起点落在 tool result 上时向前扩展到对应 assistant tool call，避免工具调用和结果被拆开。
+
 ## 为什么 Memory 和 Compact 要分开
 
 它们看起来都在“记东西”，但目标不同。
@@ -434,7 +457,6 @@ Runner 结束
       -> Store.Apply 写 memory notes
 ```
 
-这就是 PseudoClaude 能支撑长时间连续编程会话的基础。
+这是 PseudoClaude 能支撑长时间连续任务的基础。
 
-它不是靠一个巨大的 prompt 硬塞，而是把短期上下文、长期记忆、工具原文、摘要状态拆成不同存储层，各自承担不同职责。
-
+系统没有依赖单个超长 prompt，而是把短期上下文、长期记忆、工具原文、摘要状态拆成不同存储层，各自承担不同职责。

@@ -1,6 +1,6 @@
 ---
-title: 为什么我要做一个终端 Coding Agent
-description: PseudoClaude 系列开篇：从需求、边界和工程目标开始，而不是从炫技开始。
+title: 为什么要做一个终端 Coding Agent
+description: PseudoClaude 系列开篇：从工程目标、系统边界和源码阅读路径开始。
 date: 2026-08-21
 order: 1
 tags:
@@ -9,111 +9,176 @@ tags:
   - Go
 ---
 
-写 PseudoClaude 的动机很简单：我想把 Claude Code 那类终端 Coding Agent 的核心机制自己做一遍。
+PseudoClaude 的目标是实现一个 Claude Code 风格的本地终端 Coding Agent。项目仓库位于：[https://github.com/LulietLyan/PseudoClaude](https://github.com/LulietLyan/PseudoClaude)。
 
-更准确一点说，我想知道一个 Agent 从“能聊天”到“能在本地工程里持续干活”，中间到底差了哪些工程结构。
+从工程角度看，Coding Agent 不是“聊天界面加几个本地命令”。它需要解决的是一个受控执行问题：模型可以在本地工程中读取文件、搜索代码、编辑文件、执行命令、调用外部工具，并在每一步之后根据观察结果继续推进任务。系统必须同时保证这些动作可追踪、可限制、可恢复。
 
-一开始想象中的 Agent 很浪漫：
-
-```text
-用户说需求
-模型理解需求
-模型读代码
-模型改代码
-模型跑测试
-模型继续修
-最后交付
-```
-
-但真正落到代码里，会立刻遇到一些不浪漫的问题：
-
-- 模型怎么读文件，读到的结果怎么回灌给下一轮。
-- 模型怎么改文件，怎么避免误改。
-- 命令怎么执行，危险命令怎么拦。
-- 对话越来越长，工具结果越来越大，怎么不爆上下文。
-- 用户想继续上次会话，怎么恢复。
-- 工具很多时，怎么不把所有工具说明全塞进 prompt。
-- 一个 Agent 忙不过来时，能不能派子 Agent 并行调查。
-- 子 Agent 改文件，怎么不污染主工作区。
-
-这些问题拼起来，就是 PseudoClaude 的真实边界。
-
-## 它不是一个后端服务
-
-PseudoClaude 不是 REST API 服务，也不是一个 Web 后台。它更像一个本地交互式执行器：
+一个最小闭环可以写成：
 
 ```text
-Terminal UI
-  -> Agent Runner
-  -> LLM Provider
-  -> Tool Registry
-  -> Local Workspace
+用户输入
+  -> 构造模型请求
+  -> 接收流式文本和 tool call
+  -> 执行工具
+  -> 将工具结果写回会话
+  -> 再次请求模型
+  -> 直到停止条件成立
 ```
 
-所以我没有从数据库、HTTP 路由、用户系统开始，而是先做三件事：
-
-1. 一个终端界面，能持续接收用户输入和显示流式输出。
-2. 一个 Agent 主循环，能请求模型、执行工具、回灌结果。
-3. 一组安全边界，能决定哪些工具可以执行，哪些必须询问用户。
-
-项目入口在 `cmd/PseudoClaude/main.go`。这个文件像一条总装配线：加载配置、初始化记忆、权限、Hook、worktree、工具注册表、Skill、MCP、子 Agent、任务系统、团队系统，最后创建 `tui.Model` 并运行。
-
-如果只记一个主线，可以这样记：
+这个闭环对应 PseudoClaude 中的主要实现：
 
 ```text
-main.go 装配所有依赖
-  -> tui.New(...) 创建交互模型
-  -> 用户输入触发 Runner.Run
-  -> Runner 驱动 LLM 和工具
-  -> Conversation / Session / Compact 维持上下文
+cmd/PseudoClaude/main.go
+  -> internal/tui.Model
+  -> internal/agent.Runner
+  -> internal/llm.Provider
+  -> internal/tools.Registry
+  -> internal/conversation.Conversation
 ```
 
-## 五层架构只是事后总结
+## 工程目标
 
-简历里我把它写成五层：
+PseudoClaude 的核心目标可以拆成五类。
 
-- 交互层：`internal/tui`
-- 引擎层：`internal/agent`、`internal/llm`
-- 工具层：`internal/tools`、`internal/mcp`、`internal/skills`
-- 记忆层：`internal/conversation`、`internal/session`、`internal/compact`、`internal/memory`
-- 安全层：`internal/permission`、`internal/hook`、`internal/worktree`
+第一类是交互目标。应用运行在终端中，使用 Bubble Tea 管理输入框、滚动视图、状态栏、审批视图和 provider 选择界面。这个部分位于 `internal/tui`。
 
-但真实构建过程不是先画漂亮架构图，而是从一个问题滚到下一个问题。
+第二类是执行目标。系统需要一个稳定的 Agent Runner，负责多轮请求、流式收集、工具执行、工具结果回灌、停止原因判定。这个部分集中在 `internal/agent/runner.go`、`internal/agent/tools.go` 和 `internal/agent/event.go`。
 
-先有 TUI，因为没有交互就没法用。
+第三类是工具目标。模型不能直接操作文件系统或 shell，它只能发出结构化 tool call。工具层通过 `tools.Tool` 接口、`tools.Definition` 元数据和 `tools.Registry` 注册表把读文件、写文件、编辑文件、搜索、命令执行、MCP 工具、Skill 工具、Agent 工具统一起来。
 
-然后有 Runner，因为 TUI 不能直接写一堆模型调用逻辑。
+第四类是安全目标。只要系统允许模型写文件和执行命令，权限控制就必须位于工具执行前。PseudoClaude 将权限模式、路径沙箱、危险命令黑名单、策略文件和交互式审批放在 `internal/permission`，并在 `agent.executeOneTool` 的执行路径上调用。
 
-然后有 Tool Registry，因为工具会越来越多，不能靠 if else 分发。
+第五类是状态目标。长任务会产生大量消息和工具结果，系统需要会话持久化、上下文压缩和长期记忆。相关实现分布在 `internal/conversation`、`internal/session`、`internal/compact` 和 `internal/memory`。
 
-然后有权限系统，因为一旦模型能写文件和跑命令，风险就必须有统一入口管理。
+## 为什么入口值得先读
 
-然后有 Session 和 Compact，因为长会话会把上下文撑爆。
-
-最后才有 Skill、MCP、子 Agent、Team，因为当主循环稳定后，扩展能力才有意义。
-
-## 这个系列怎么读
-
-这个系列会尽量按“从零搭建”的顺序写：
-
-1. 先搭最小终端 Agent：输入、输出、请求模型。
-2. 再把一次请求升级成 ReAct loop：模型能调用工具。
-3. 加工具系统：文件、搜索、命令、统一注册。
-4. 加权限和 Hook：让副作用可控。
-5. 加 Conversation、Session、Compact、Memory：让长会话能持续。
-6. 加 MCP 和 Skill：让工具生态可扩展。
-7. 加 subagent、task、team、worktree：让大型任务能并行和隔离。
-
-我会尽量避免“这个文件做了什么”的流水账，而是解释每个模块为什么出现，以及它在源码里具体怎么落地。
-
-## 最核心的一句话
-
-PseudoClaude 的核心价值不是“我调用了大模型 API”，而是：
+复杂项目的阅读顺序不应从目录树开始，而应从进程入口开始。PseudoClaude 的入口是 `cmd/PseudoClaude/main.go`，它承担的是总装配职责：
 
 ```text
-我把模型输出、工具执行、权限审批、上下文持久化和多 Agent 协作
-收敛到统一的事件流和接口里。
+Load config
+Load instructions
+Create memory manager
+Load hook engine
+Create permission engine
+Create worktree manager
+Create tool registry
+Load skills
+Load MCP tools
+Load subagent catalog
+Create task manager
+Create team manager
+Register Agent and task tools
+Create tui.Model
+Run Bubble Tea program
 ```
 
-这也是一个 Coding Agent 从 toy demo 变成工程项目的分界线。
+这条装配线说明了项目的真实依赖方向：TUI 不直接创建工具，Runner 不直接加载配置，Provider 不知道权限策略，工具执行不知道 UI 如何展示审批。每一层只接收自己需要的依赖。
 
+入口代码中最值得注意的是链式配置：
+
+```go
+model := tui.New(cfg.Providers, cwd, registry, permissionEngine).
+    WithAgentHandle(agentHandle).
+    WithWorktrees(worktreeMgr).
+    WithSkills(skillCatalog, activeSkills).
+    WithHooks(hookEngine).
+    WithSubAgents(subagentCatalog, taskManager).
+    WithTeams(teamManager).
+    WithPersistentContext(instructionResult.Content, memoryManager).
+    WithStartupStatus(startup...)
+```
+
+这段代码体现了一个重要设计：`tui.New` 只创建基础交互模型，MCP、Skill、Hook、Team、Memory 等能力通过 `WithXxx` 注入。入口能够表达装配顺序，TUI 内部也能保持可测试的状态结构。
+
+## 系统边界
+
+PseudoClaude 不是一个 Web 服务。它没有 HTTP 路由、数据库用户表或后端控制器。它是一个终端本地执行器，边界更接近以下形态：
+
+```text
+Terminal process
+  -> local workspace
+  -> model provider API
+  -> optional MCP servers
+  -> user/project configuration
+```
+
+因此，系统关注点也不同于传统服务端项目。传统 Web 服务通常围绕请求生命周期、数据库事务和 API 合同设计。PseudoClaude 围绕 Agent 轮次设计：一次用户输入可能触发多次模型请求、多个工具批次、若干权限审批、一次上下文压缩和一次记忆更新。
+
+这也是 `agent.Event` 存在的原因。Runner 不直接操作 TUI，而是把执行过程转成事件：
+
+```go
+type Event struct {
+    Type       EventType
+    Iteration  int
+    Text       string
+    Message    string
+    ToolCall   *llm.ToolCall
+    ToolResult *ToolResult
+    Approval   *ApprovalRequest
+    Usage      *llm.Usage
+    Stop       *Stop
+    Err        error
+}
+```
+
+事件边界将执行引擎和界面解耦。TUI 可以显示文本增量、工具状态和审批界面；后台 task manager 可以消费同一类事件并记录任务结果。
+
+## 模块划分
+
+从源码看，PseudoClaude 可以按职责划分为七个部分：
+
+```text
+交互层       internal/tui, internal/command
+执行层       internal/agent
+模型适配层   internal/llm
+工具层       internal/tools, internal/mcp, internal/skills
+状态层       internal/conversation, internal/session, internal/compact, internal/memory
+安全层       internal/permission, internal/hook, internal/worktree
+协作层       internal/task, internal/subagent, internal/team
+```
+
+这种划分不是为了制造目录，而是为了限制耦合。
+
+`internal/llm` 只负责把内部请求转换为不同 provider 的 SDK 请求，并将 provider 的流式返回统一成 `llm.StreamEvent`。
+
+`internal/tools` 只负责工具定义、执行和结果封装，不负责判断用户是否允许执行。
+
+`internal/permission` 只负责决策，不直接运行工具。
+
+`internal/agent` 将这些组件串起来，但通过接口持有依赖，例如 `llm.Provider`、`tools.Registry`、`permission.Engine`、`MemoryUpdater`。
+
+## 阅读路径
+
+阅读 PseudoClaude 时，可以按以下路径建立完整心智模型：
+
+1. 从 `cmd/PseudoClaude/main.go` 读装配过程，确认系统有哪些运行时依赖。
+2. 读 `internal/tui/tui.go`，理解应用状态、输入处理、provider 选择和事件消费。
+3. 读 `internal/agent/runner.go`，理解 ReAct 主循环。
+4. 读 `internal/agent/tools.go` 和 `internal/tools/registry.go`，理解工具批处理、权限介入和统一结果格式。
+5. 读 `internal/llm/provider.go`、`openai.go`、`anthropic.go`，理解 provider 适配层如何统一消息、工具和 usage。
+6. 读 `internal/conversation`、`internal/session`、`internal/compact`，理解长会话如何落盘、恢复和压缩。
+7. 读 `internal/subagent`、`internal/task`、`internal/team`、`internal/worktree`，理解并行任务和工作区隔离。
+
+## 系列文章的组织方式
+
+后续文章会按实现链路推进，而不是按宣传卖点推进。
+
+第 2 篇先搭建最小终端 Agent，说明输入、输出、provider 和 Runner 的最小形态。
+
+第 3 篇分析 `Runner.run`，重点解释多轮循环、工具调用、结果回灌、Plan Mode 和停止条件。
+
+第 4 篇分析工具系统、权限系统和 Hook，说明副作用如何在执行前被拦截。
+
+第 5 篇分析会话、压缩和记忆，说明长任务如何避免上下文失控。
+
+第 6 篇分析 MCP 与 Skill，说明扩展能力如何进入工具注册表和 prompt。
+
+第 7 篇分析子 Agent、Team 和 worktree，说明并行任务如何避免污染主工作区。
+
+第 9 至第 12 篇补足入口装配、Provider 适配、TUI 状态机和测试边界。
+
+## 小结
+
+PseudoClaude 的核心不在于调用某个模型 API，而在于把模型输出、工具执行、权限决策、上下文状态和多 Agent 协作组织成可维护的 Go 程序。
+
+这个项目可以作为一个 Agent 系统的工程样本：模型是不确定的，但程序边界必须确定；工具有副作用，但执行入口必须统一；会话会增长，但上下文管理必须可恢复；协作可以并行，但文件系统边界必须清晰。
