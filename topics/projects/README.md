@@ -1,20 +1,16 @@
 ---
 title: Projects
-description: Reserved for project notes and nested sub-columns.
+description: 个人项目的开发记录，包括项目背景、功能设计、技术实现和更新情况。
 icon: mdi:source-repository
 order: 7
 tags:
   - Projects
 ---
 
-A standing column for project notes.
+This section documents the projects I develop and maintain.
 
-To add a sub-column, create a folder here and write `README.md`. Nesting has no depth limit:
+Each project is covered separately, including its background, main features, technical implementation, development challenges, and ongoing updates.
 
-```text
-topics/projects/foo/README.md
-topics/projects/foo/bar/README.md
-topics/projects/foo/bar/note.md
-```
+这里记录我开发和维护的项目。
 
-A folder is a column. `README.md` is the column page. Other Markdown files are notes.
+每个项目会单独整理，内容包括项目背景、主要功能、技术实现、开发过程中遇到的问题，以及后续更新。
