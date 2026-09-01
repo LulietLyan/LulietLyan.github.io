@@ -10,9 +10,21 @@ tags:
   - Go
 ---
 
-Coding Agent 需要长期遵守仓库约定和用户偏好，但这些规则不应该硬编码进二进制。PseudoClaude 允许工作区和用户分别提供 `PSEUDOCLAUDE.md`，启动时将它们组合成 Custom Instructions，再放入稳定 System Prompt。
+先给结论：项目规则和用户规则没有走一套神秘的“覆盖系统”。它们本质上是几份 Markdown 文件，启动时被读出来、标上来源、按固定顺序拼成一段 `Custom Instructions`，再塞进稳定的 System Prompt。
 
-这里的“分层”指固定来源和固定拼接顺序，不是配置字段覆盖。Loader 不判断两条自然语言规则谁更具体，也不会自动解决冲突；它只负责找到内容、展开受约束的引用并保留来源边界。
+最简单的流水线是这样：
+
+```text
+PSEUDOCLAUDE.md
+  -> Loader 读取三层文件
+  -> 展开安全范围内的 @include
+  -> 拼成带 Source 标题的文本
+  -> TUI 保存到 Runner.Instructions
+  -> Runner 构造 Stable System Prompt
+  -> Provider 发给模型
+```
+
+所以这里的“分层”只表示“从哪些地方读、按什么顺序拼”。它不是权限系统，也不会判断两条自然语言规则谁更高级。Loader 的工作很朴素：找到内容，安全展开引用，保留来源边界。
 
 ## 三个固定来源
 
@@ -28,14 +40,18 @@ Loader 只检查三个位置：
 
 ```go
 func (l Loader) Layers() []Layer {
+    // 三层来源按写入 Prompt 的顺序返回；这里不表达覆盖或权限优先级。
     maxDepth := l.MaxDepth
     if maxDepth <= 0 {
         maxDepth = DefaultMaxDepth
     }
     _ = maxDepth
     return []Layer{
+        // 项目根规则面向整个仓库，include 只能留在项目根内。
         {Name: "project-root", Path: filepath.Join(l.ProjectRoot, FileName), Boundary: l.ProjectRoot},
+        // 项目配置目录放 PseudoClaude 专用规则，也共享项目根 include 边界。
         {Name: "project-config", Path: filepath.Join(l.ProjectRoot, ".PseudoClaude", FileName), Boundary: l.ProjectRoot},
+        // 用户规则跨项目复用，include 被限制在用户的 .PseudoClaude 目录中。
         {Name: "user", Path: filepath.Join(l.UserHome, ".PseudoClaude", FileName), Boundary: filepath.Join(l.UserHome, ".PseudoClaude")},
     }
 }
@@ -55,23 +71,22 @@ func (l Loader) Load() LoadResult {
     }
     exp := expander{maxDepth: maxDepth}
     var result LoadResult
+    // parts 保留每一层完整文本，最后用 --- 分隔；没有做规则去重或覆盖。
     var parts []string
     for _, layer := range l.Layers() {
+        // 顶层文件不存在是正常状态：没有该层就跳过。
         if _, err := os.Stat(layer.Path); os.IsNotExist(err) {
             continue
         } else if err != nil {
             result.Warnings = append(result.Warnings, err.Error())
             continue
         }
-        content, warnings := exp.expand(
-            layer.Path, layer.Boundary, 0, map[string]struct{}{},
-        )
+        // 每个顶层文件使用自己的边界，防止 @include 跨出所属范围。
+        content, warnings := exp.expand(layer.Path, layer.Boundary, 0, map[string]struct{}{})
         result.Warnings = append(result.Warnings, warnings...)
         result.Loaded = append(result.Loaded, layer.Path)
-        parts = append(parts, fmt.Sprintf(
-            "## Source: %s (%s)\n\n%s",
-            layer.Name, layer.Path, strings.TrimSpace(content),
-        ))
+        // Source 标题给模型保留来源信息，便于理解冲突来自哪一层。
+        parts = append(parts, fmt.Sprintf("## Source: %s (%s)\n\n%s", layer.Name, layer.Path, strings.TrimSpace(content)))
     }
     result.Content = strings.TrimSpace(strings.Join(parts, "\n\n---\n\n"))
     return result
@@ -97,11 +112,13 @@ func (l Loader) Load() LoadResult {
 var includeLine = regexp.MustCompile(`^\s*@include\s+(.+?)\s*$`)
 
 func isIncludeLine(line string) (string, bool) {
+    // 只有独占一行的 @include 才是指令；正文里的普通文字不会被误展开。
     m := includeLine.FindStringSubmatch(line)
     if len(m) != 2 {
         return "", false
     }
     rel := strings.TrimSpace(m[1])
+    // 只允许相对路径，具体越界检查留给 expand 的 boundary。
     if rel == "" || filepath.IsAbs(rel) {
         return "", false
     }
@@ -113,14 +130,11 @@ func isIncludeLine(line string) (string, bool) {
 
 ## 递归展开的多层保护
 
-`expand` 在读取文件前检查深度、边界、调用栈环路和二进制特征：
+`expand` 在读取文件前检查深度、边界、调用栈环路和二进制特征。读者可以把它想成“先看门禁，再开文件”：
 
 ```go
-func (e expander) expand(
-    path, boundary string,
-    depth int,
-    visited map[string]struct{},
-) (string, []string) {
+func (e expander) expand(path, boundary string, depth int, visited map[string]struct{}) (string, []string) {
+    // 这些检查都发生在 ReadFile 之前，尽量把错误 include 变成可见 warning。
     if depth > e.maxDepth {
         w := fmt.Sprintf("<!-- @include 超过最大嵌套深度，已跳过: %s -->", path)
         return w, []string{w}
@@ -148,6 +162,7 @@ func (e expander) expand(
         return w, []string{w}
     }
 
+    // 复制 visited 是为了让它表达当前递归调用栈，而不是全局已读文件集合。
     nextVisited := make(map[string]struct{}, len(visited)+1)
     for k, v := range visited {
         nextVisited[k] = v
@@ -161,10 +176,9 @@ func (e expander) expand(
         if !ok {
             continue
         }
+        // include 路径永远相对当前文件所在目录解析，便于规则文件就近引用材料。
         includePath := filepath.Join(filepath.Dir(abs), rel)
-        expanded, ws := e.expand(
-            includePath, boundary, depth+1, nextVisited,
-        )
+        expanded, ws := e.expand(includePath, boundary, depth+1, nextVisited)
         lines[i] = expanded
         warnings = append(warnings, ws...)
     }
@@ -181,8 +195,11 @@ func (e expander) expand(
 主入口在其他运行时对象之前加载指令，并把 Warning 转成启动状态：
 
 ```go
+// 从工作区加载 instructions，它会在后面作为持久上下文灌入 TUI。
 instructionResult := instructions.NewLoader(cwd).Load()
 
+// 最后把前面所有准备好的组件注入 TUI。
+// 这里采用链式 WithXXX，是因为各个子系统之间有依赖，需要按顺序填充。
 model := tui.New(cfg.Providers, cwd, registry, permissionEngine).
     WithAgentHandle(agentHandle).
     WithWorktrees(worktreeMgr).
@@ -199,21 +216,10 @@ TUI 将文本保存到 Runner。每次新的 Agent Run 构造稳定 System Promp
 ```go
 func OptionalModules(inputs PromptInputs) []Module {
     return []Module{
-        {
-            Name: "Custom Instructions",
-            Priority: PriorityCustomInstructions,
-            Content: inputs.Instructions,
-        },
-        {
-            Name: "Available Skills",
-            Priority: PriorityActiveSkills,
-            Content: inputs.SkillsCatalog,
-        },
-        {
-            Name: "Long-Term Memory",
-            Priority: PriorityLongTermMemory,
-            Content: inputs.Memory,
-        },
+        // Custom Instructions 承载 PSEUDOCLAUDE.md 拼接结果；它是提示词文本，不是权限规则。
+        {Name: "Custom Instructions", Priority: PriorityCustomInstructions, Content: inputs.Instructions},
+        {Name: "Available Skills", Priority: PriorityActiveSkills, Content: inputs.SkillsCatalog},
+        {Name: "Long-Term Memory", Priority: PriorityLongTermMemory, Content: inputs.Memory},
     }
 }
 ```

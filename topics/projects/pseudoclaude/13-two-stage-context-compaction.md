@@ -10,9 +10,32 @@ tags:
   - Go
 ---
 
-长会话的上下文增长有两种形态：一次读取大文件或运行测试可能瞬间产生巨型 Tool Result；普通对话、代码分析和多轮工具调用则会缓慢累积。只用一种压缩手段，会让简单问题付出过高成本：为一个大结果调用 LLM 摘要没有必要，而只落盘工具输出又无法控制不断增长的历史。
+先给结论：PseudoClaude 的长上下文治理不是一上来就“总结所有东西”。它先做便宜、确定的事：把特别大的 Tool Result 搬到磁盘；如果这样还不够，再做昂贵、有损的事：让模型把旧历史总结成摘要。
 
-PseudoClaude 因此采用两级策略。每次请求模型前，Layer 1 先用确定性规则把大型 Tool Result 写到 Session 目录并保留预览；如果处理后仍接近上下文窗口，Layer 2 才请求模型摘要历史，并附加一段不切断 ToolCall/ToolResult 的近期原文。
+可以把它想成清理书桌：
+
+```text
+桌上太挤
+  -> 先把厚厚的工具输出放进文件柜，只在桌上留标签和前几行
+  -> 再看桌面是不是还挤
+  -> 如果还挤，把旧聊天整理成摘要
+  -> 最近几条原话继续留在桌上，方便接着干活
+```
+
+对应到代码里的完整顺序是：
+
+```text
+Runner 每轮请求模型前
+  -> ManageContext
+  -> Layer 1: OffloadToolResults
+  -> Replace Conversation 为“预览快照”
+  -> 重新估算 Token 水位
+  -> Layer 2: compactConversation
+  -> Replace Conversation 为“摘要 + 近期原文”
+  -> 请求主模型
+```
+
+长会话的上下文增长有两种形态：一次读取大文件或运行测试可能瞬间产生巨型 Tool Result；普通对话、代码分析和多轮工具调用则会缓慢累积。两层策略正好分别处理这两类问题：Layer 1 处理“突然冒出来的大块工具结果”，Layer 2 处理“整段历史越来越长”。
 
 ## 两层策略使用不同预算
 
@@ -20,19 +43,26 @@ PseudoClaude 因此采用两级策略。每次请求模型前，Layer 1 先用�
 
 ```go
 const (
-    SingleToolResultLimitBytes    = 50000
+    // Layer 1 用字节阈值处理本地 ToolResult，大结果先落盘，不需要额外调用模型。
+    SingleToolResultLimitBytes   = 50000
     ToolRoundAggregateLimitBytes = 200000
 
-    SummaryReserveTokens   = 20000
-    AutoSafetyMarginTokens = 13000
+    // Layer 2 用 Token 预算保护模型窗口，自动摘要会提前留下输出空间和安全余量。
+    SummaryReserveTokens     = 20000
+    AutoSafetyMarginTokens   = 13000
     ManualSafetyMarginTokens = 3000
 
+    // 摘要后仍保留一段近期原文，避免刚发生的细节只剩有损摘要。
     RecentKeepTokens   = 10000
     RecentKeepMessages = 5
 
+    AutoFailureLimit      = 3
+    EstimateCharsPerToken = 3.5
+
+    // 落盘预览只保留头部线索，全文通过预览里的路径按需重新读取。
     PreviewHeadBytes = 2048
     PreviewHeadLines = 20
-    AutoFailureLimit = 3
+
     SummaryRetryLimit = 3
 )
 ```
@@ -46,6 +76,7 @@ Compact 不是任务结束后的清理，而是 ReAct 每轮请求前的前置�
 ```go
 if r.Compact != nil {
     r.dispatchHook(ctx, hook.EventPreCompact, permissionMode, hook.Payload{"trigger": "auto"})
+    // ManageContext 会先做本地 ToolResult 落盘，再按水位决定是否请求摘要模型。
     out, err := compact.ManageContext(ctx, compact.ManageInput{
         Conversation: req.Conversation,
         Runtime:      r.Compact,
@@ -157,6 +188,37 @@ for _, candidate := range candidates {
 原文写入当前 Session 的 `tool-results/<safe-call-id>.txt`。Conversation 中的替代文本包含原字节数、完整路径、最多 20 行且最多 2,048 bytes 的 UTF-8 安全头部，以及要求重新读文件而不要猜测全文的提醒：
 
 ```go
+func previewHead(content string) string {
+    // 预览只截取头部，目的是给模型一点上下文线索，而不是替代完整 ToolResult。
+    lines := strings.SplitAfter(content, "\n")
+    if len(lines) > PreviewHeadLines {
+        lines = lines[:PreviewHeadLines]
+    }
+    head := strings.Join(lines, "")
+    if len(head) <= PreviewHeadBytes {
+        return head
+    }
+    cut := PreviewHeadBytes
+    for cut > 0 && !utf8.ValidString(head[:cut]) {
+        cut--
+    }
+    return head[:cut]
+}
+
+func buildPreview(originalBytes int, head string, spillPath string) string {
+    var b strings.Builder
+    // 预览必须包含落盘路径，后续需要全文时才能用文件读取工具找回原始结果。
+    fmt.Fprintf(&b, "[content offloaded] original size: %d bytes\n", originalBytes)
+    fmt.Fprintf(&b, "[saved to] %s\n", spillPath)
+    b.WriteString("[head preview]\n")
+    b.WriteString(head)
+    if head != "" && !strings.HasSuffix(head, "\n") {
+        b.WriteByte('\n')
+    }
+    b.WriteString("\n完整内容已保存到上述路径；如需完整内容，请使用文件读取工具读取该路径。不要凭头部预览猜测全文。")
+    return b.String()
+}
+
 func replaceToolResult(rt *Runtime, id, content string) (string, error) {
     path, err := spillToolResult(rt.Snapshot().Session, id, content)
     if err != nil {

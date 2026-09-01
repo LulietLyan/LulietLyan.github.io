@@ -14,26 +14,67 @@ Plan Mode 的目标不是让模型“尽量不要改文件”，而是让当前 
 
 PseudoClaude 因而把 Plan Mode 做成两道程序约束：请求模型前筛选 Tool Definition，执行调用前再次检查同一份 Safety。Permission Mode 仍在这两道约束内部独立决定 Read 是否需要审批，不能把 Plan 与 Permission 混成一个开关。
 
+可以把它想成两个门禁：
+
+1. **工具定义门禁**：先决定“模型能看见哪些按钮”。Plan Mode 只把只读按钮放到模型面前。
+2. **工具执行门禁**：再决定“模型按下的按钮能不能真的执行”。如果模型硬报一个写文件按钮，执行前仍会被拦下。
+
+所以 Plan Mode 的安全感不是来自“模型听话”，而是来自“看不见 + 执行前再查一次”。
+
 ## Safety 是 Tool 契约的一部分
 
 每个 Tool Definition 都声明粗粒度 Safety：
 
 ```go
+// Definition 是发送给模型的工具契约，不包含工具的 Go 实现。
 type Definition struct {
-    Name        string
-    Description string
-    InputSchema map[string]any
-    Safety      Safety
-    System      bool
-    Timeout     time.Duration
+    Name        string         // 模型在 ToolCall 中返回的稳定路由名
+    Description string         // 告诉模型何时以及为什么使用该工具
+    InputSchema map[string]any // 约束 ToolCall.Arguments 的 JSON Schema
+    Safety      Safety         // 权限和运行模式使用的风险分类
+    System      bool           // 控制面工具，不受普通工具名称过滤和权限规则限制
+    Timeout     time.Duration  // 可选的单工具超时，覆盖 Env 默认值
 }
 
+// Safety 是工具声明的粗粒度副作用分类，不替代具体权限规则或参数校验。
+// Plan Mode 等运行模式只信任这个标签来决定“能不能看见、能不能执行”某类工具。
 type Safety string
 
 const (
+    // SafetyReadOnly 表示工具只观察当前状态，不应修改项目文件、外部系统或启动本地进程。
     SafetyReadOnly   Safety = "read_only"
+    // SafetySideEffect 表示工具可能修改外部状态或启动进程。
     SafetySideEffect Safety = "side_effect"
 )
+```
+
+基础文件工具里就能看到这个分类：
+
+```go
+func (readFileTool) Definition() Definition {
+    return Definition{
+        Name:        "read_file",
+        Description: "Dedicated tool for reading a UTF-8 text file from the local workspace.",
+        // read_file 只读取文本内容，因此 Plan Mode 可以把它暴露给模型并允许执行。
+        Safety:      SafetyReadOnly,
+        InputSchema: objectSchema(map[string]any{
+            "path": stringProp("Path to the file to read."),
+        }, "path"),
+    }
+}
+
+func (writeFileTool) Definition() Definition {
+    return Definition{
+        Name:        "write_file",
+        Description: "Write complete UTF-8 text content to a local file, creating parent directories when needed. Before overwriting, confirm the target content and user-change risk.",
+        // 写完整文件会改变工作区；即使用户权限规则允许，Plan Mode 仍会按 Safety 拒绝。
+        Safety:      SafetySideEffect,
+        InputSchema: objectSchema(map[string]any{
+            "path":    stringProp("Path to the file to write."),
+            "content": stringProp("Complete file content to write."),
+        }, "path", "content"),
+    }
+}
 ```
 
 Read、Glob、Grep 和 `load_skill` 标为 ReadOnly；Write、Edit、Bash、Skill 命令和 Agent 等标为 SideEffect。Plan Mode 不维护另一份工具名黑名单，而是复用 Registry 中 Definition 的 Safety，因此新注册的 MCP 或 Skill Tool 也进入同一筛选逻辑。
@@ -48,12 +89,17 @@ Runner 在一次 Run 开始时根据工作模式准备 Prompt、工具定义和�
 func (r Runner) prepareRequest(
     req Request,
 ) (string, []tools.Definition, toolExecutionOptions) {
+    // 没有 Registry 时仍能生成文本请求，但不会向模型暴露或执行任何工具。
     if r.Registry == nil {
         return requestText(req), nil, toolExecutionOptions{}
     }
+    // 同一名称集合既参与 Definition 可见性过滤，也留给执行期进行第二次检查。
     allowedNames := allowedNameSet(r.AllowedTools)
     switch req.Mode {
     case ModePlan:
+        // Plan Mode 建立双重 ReadOnly 边界：
+        // 1. Definition 层只把 read_only 工具发给模型，减少它可选择的动作。
+        // 2. 执行层把 AllowedSafety 收窄为 read_only，挡住伪造或过期的 SideEffect ToolCall。
         return planPrompt(req.PlanTask),
             filterDefinitionsBySafety(
                 r.Registry.DefinitionsFiltered(r.AllowedTools),
@@ -67,10 +113,12 @@ func (r Runner) prepareRequest(
                 Sub:          r.Sub,
             }
     case ModeDo:
+        // Do Mode 使用原始任务与已确认 Plan 组装执行提示词，Safety 不再额外收窄。
         return doPrompt(req.PlanTask, req.PlanText),
             r.Registry.DefinitionsFiltered(r.AllowedTools),
             toolExecutionOptions{AllowedNames: allowedNames, Sub: r.Sub}
     default:
+        // Chat Mode 使用普通文本，同时保留 Skill 或 SubAgent 提供的名称白名单。
         return requestText(req),
             r.Registry.DefinitionsFiltered(r.AllowedTools),
             toolExecutionOptions{AllowedNames: allowedNames, Sub: r.Sub}
@@ -79,6 +127,23 @@ func (r Runner) prepareRequest(
 ```
 
 顺序是先用 `AllowedTools` 做 Skill/SubAgent 名称过滤，再只保留 SafetyReadOnly。`DefinitionsFiltered` 原本会始终保留 System Tool，但后续 Safety 过滤仍会移除 SideEffect System Tool；System 身份不会自动突破 Plan 边界。
+
+过滤函数本身很小：
+
+```go
+// filterDefinitionsBySafety 保持 Registry 的稳定名称顺序，仅保留目标 Safety 的模型契约。
+// 它只影响“模型看见什么”，不证明“模型只能调用什么”；真正执行前仍由
+// toolExecutionOptions.allows 复检同一个 Safety 标签。
+func filterDefinitionsBySafety(defs []tools.Definition, safety tools.Safety) []tools.Definition {
+    out := make([]tools.Definition, 0, len(defs))
+    for _, def := range defs {
+        if def.Safety == safety {
+            out = append(out, def)
+        }
+    }
+    return out
+}
+```
 
 对模型而言，第一层的效果是工具协议中根本没有 Write、Edit 或 Bash。它减少误调用和不必要的工具选择，也让支持原生 Tool Calling 的 Provider 从 schema 层看到更小的能力集合。
 
@@ -133,6 +198,8 @@ func executeAllowedTool(
     call llm.ToolCall,
     opts toolExecutionOptions,
 ) tools.Result {
+    // Safety 白名单实现 Plan Mode 等模式的硬边界，不能被用户审批或 Permission Mode 绕过。
+    // 换句话说，“这个目标被授权”不等于“当前阶段允许使用这种有副作用能力”。
     if safety, ok := registry.Safety(call.Name);
         ok && !opts.allows(safety) {
         return tools.Failure(
@@ -145,6 +212,7 @@ func executeAllowedTool(
             },
         )
     }
+    // 名称白名单限制 Active Skill 或 SubAgent 的能力；System 工具由 allowsName 特别保留。
     if !opts.allowsName(registry, call.Name) {
         return tools.Failure(
             call.Name,
@@ -153,6 +221,7 @@ func executeAllowedTool(
             map[string]any{"call_id": call.ID},
         )
     }
+    // 通过 Agent 层约束后，转换为 tools.Call，交给 Registry 做路由、JSON、超时和 panic 保护。
     return registry.Execute(ctx, tools.Call{
         ID:        call.ID,
         Name:      call.Name,
@@ -164,6 +233,19 @@ func executeAllowedTool(
 Plan Mode 的 `AllowedSafety` 只有 ReadOnly。即使 Provider 伪造 `write_file`，或者客户端把一个旧 ToolCall 混进当前响应，执行入口也返回 `tool_not_allowed`，不会调用 Tool 实现。这个失败像其他 Observation 一样写回 Conversation，模型下一轮可以修正行为。
 
 `AllowedNames` 是另一维限制，用于 Skill 和 SubAgent 可见工具范围。受保护的 System Tool 可以绕过名称过滤，但不能绕过前面的 Safety 检查；二者不是同一个白名单。
+
+这个检查背后调用的是 Registry 中真实工具定义：
+
+```go
+func (r *Registry) Safety(name string) (Safety, bool) {
+    tool, ok := r.Get(name)
+    if !ok {
+        return "", false
+    }
+    // 执行期不信任模型“应该只能看到哪些工具”，而是回到 Registry 查真实 Definition.Safety。
+    return tool.Definition().Safety, true
+}
+```
 
 ## Permission Mode 与 Plan Mode 谁先决定
 
@@ -250,6 +332,33 @@ TUI 在 planMode 下提交任务
 ## 测试验证了什么
 
 Runner 测试确认 Plan Request 只带 ReadOnly Definition，Do Request 恢复完整工具；伪造 SideEffect ToolCall 时实现不会执行，Conversation 中能看到 `tool_not_allowed`。Reminder 测试覆盖完整/简短提醒节奏，Registry 测试确认名称过滤保留 System Tool，Agent 测试也覆盖 Active Skill 名称白名单的执行期拒绝。
+
+最关键的是这两个测试：
+
+```go
+func TestPlanModeRejectsSideEffectToolIfModelRequestsIt(t *testing.T) {
+    // 即使 Provider 在 Plan Mode 返回了未暴露的写工具，执行层的 AllowedSafety 也必须兜住。
+    provider := &fakeProvider{streams: [][]llm.StreamEvent{
+        {{ToolCall: &llm.ToolCall{ID: "call_1", Name: "write_file", Arguments: json.RawMessage(`{}`)}}, {Done: true}},
+        {{Text: "I need requirements first."}, {Done: true}},
+    }}
+    executed := false
+    registry, err := tools.NewRegistry(
+        scriptedTool{name: "read_file", safety: tools.SafetyReadOnly},
+        fakeExecTool{name: "write_file", safety: tools.SafetySideEffect, executed: &executed},
+    )
+    // 后续断言：executed 仍为 false，且会话里出现 tool_not_allowed。
+}
+
+func TestRunnerPlanAndDoModesSelectToolsAndPrompt(t *testing.T) {
+    // 第一层只读边界体现在请求模型的 Tool Definition：Plan 只给 read_file，Do 恢复完整工具集。
+    provider := &fakeProvider{streams: [][]llm.StreamEvent{
+        {{Text: "plan"}, {Done: true}},
+        {{Text: "done"}, {Done: true}},
+    }}
+    // 后续断言：Plan 请求只有 read_file；Do 请求有 read_file 和 write_file。
+}
+```
 
 现有测试没有证明第三方 Tool 的 Safety 标注真实可靠，也没有覆盖恶意 MCP Server 把写操作伪装成 ReadOnly、`load_skill` 的进程内状态变更边界，或生产 TUI 从 `lastPlan` 构造 ModeDo。它们分别属于信任分类和产品接线问题，不能由双重使用同一标签自动解决。
 

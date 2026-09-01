@@ -14,6 +14,26 @@ tags:
 
 PseudoClaude 在可配置策略之前放了一层不可配置的危险命令黑名单。它能保证已经识别的模式不会被显式 Allow 或 Bypass 覆盖；但它仍是正则启发式检查，不是 Shell 解析器或操作系统级隔离。
 
+先用最简单的话说：**黑名单不是告诉模型“不要这样做”，而是在命令真正执行前把 Tool Call 拦下来。**
+
+这条链路里有四个角色：
+
+```text
+Provider
+  只负责返回 Tool Call，例如 run_command + command/args。
+
+Agent Tool Runner
+  负责接住 Tool Call，并在执行前交给权限层检查。
+
+Permission Engine
+  负责把 command/args 还原成稳定命令串，然后先查黑名单。
+
+Registry / run_command
+  只有前面都允许时，才会真正调用 exec.CommandContext。
+```
+
+所以危险命令防线的关键不是“模型会不会听话”，而是：**Tool Call 到达真实工具之前，必须先过一层硬检查。**
+
 ## run_command 接收结构化参数
 
 模型不是提交一整段默认交给 Shell 的脚本，而是分别给出可执行文件和参数数组：
@@ -23,7 +43,9 @@ func (runCommandTool) Definition() Definition {
     return Definition{
         Name:        "run_command",
         Description: "Run a local command in the current workspace and return stdout, stderr, and exit status. Prefer read_file, find_files, and search_code for reading, locating, or searching files; use commands for build, test, validation, or shell-only operations.",
-        Safety:      SafetySideEffect,
+        // run_command 可能改文件、启动进程或访问系统资源，因此默认按有副作用工具处理。
+        Safety: SafetySideEffect,
+        // command 和 args 分开传入；执行时不会默认拼成 shell 脚本。
         InputSchema: objectSchema(map[string]any{
             "command": stringProp("Executable command name or path."),
             "args": map[string]any{
@@ -39,6 +61,8 @@ func (runCommandTool) Definition() Definition {
 执行时使用 `exec.CommandContext`，参数不会默认再经过 Shell 展开：
 
 ```go
+// 到这里说明 Agent 层权限检查已经放行；run_command 才真正启动本地进程。
+// command 和 args 直接交给 os/exec，不会默认经过 shell 展开。
 cmd := exec.CommandContext(ctx, args.Command, args.Args...)
 cmd.Dir = env.CWD
 var stdout, stderr bytes.Buffer
@@ -62,15 +86,18 @@ func commandText(call llm.ToolCall) (string, bool) {
         Command string   `json:"command"`
         Args    []string `json:"args"`
     }
+    // ToolCall 参数必须先能解析成 command/args，后续规则和黑名单才有可靠目标。
     if err := json.Unmarshal(call.Arguments, &args); err != nil {
         return "", false
     }
+    // command 为空表示不知道要执行什么；权限层会把它当成不可解释调用拒绝。
     args.Command = strings.TrimSpace(args.Command)
     if args.Command == "" {
         return "", false
     }
     parts := []string{args.Command}
     for _, arg := range args.Args {
+        // 带空白或引号的参数用 Go Quote 变成稳定展示文本，避免规则匹配时歧义。
         if strings.ContainsAny(arg, " \t\n\"'\\") {
             parts = append(parts, strconv.Quote(arg))
         } else {
@@ -91,6 +118,8 @@ Engine 在 Exec 分类分支中先调用 `commandText`，再检查 blacklist：
 
 ```go
 if category == CategoryExec {
+    // Exec 规则匹配的是规范化命令文本，无法解析参数时直接拒绝。
+    // 这里发生在 Registry.Execute 之前，因此命令还没有机会进入 os/exec。
     command, ok := commandText(call)
     if !ok {
         return CheckResult{
@@ -103,6 +132,8 @@ if category == CategoryExec {
     }
     target = command
     matchTarget = command
+    // 黑名单先于用户规则与 Permission Mode，显式 allow 和 bypass 都不能覆盖。
+    // 命中后直接返回 Deny，后面的 session/local/project/user 规则不会再被查询。
     if ok, pattern := hitsBlacklist(command); ok {
         return CheckResult{
             Decision: DecisionDeny,
@@ -125,12 +156,17 @@ if category == CategoryExec {
 
 ```go
 var dangerousCommandPatterns = []*regexp.Regexp{
+    // 递归强制删除根目录或用户主目录，是最典型的不可恢复破坏。
     regexp.MustCompile(`(?i)(^|\s)rm\s+-(?:[^\s]*r[^\s]*f|[^\s]*f[^\s]*r)[^\n]*(?:\s|=)(/|~)(?:\s|$)`),
+    // 关键系统目录即使不是根目录，也应在配置规则之前被硬拒绝。
     regexp.MustCompile(`(?i)(^|\s)rm\s+-(?:[^\s]*r[^\s]*f|[^\s]*f[^\s]*r)[^\n]*(?:/bin|/boot|/dev|/etc|/home|/lib|/private|/sbin|/usr|/var)(?:\s|$)`),
+    // 直接写块设备或格式化设备，可能破坏磁盘和文件系统。
     regexp.MustCompile(`(?i)(^|\s)dd\s+[^\n]*(?:^|\s)of=/dev/(?:disk|rdisk|sd|hd|vd|nvme|mapper/)`),
     regexp.MustCompile(`(?i)(^|\s)(mkfs|mke2fs|newfs|diskutil\s+eraseDisk|format)\b[^\n]*(?:/dev/|[A-Z]:)`),
+    // Shell fork bomb 会快速耗尽进程资源。
     regexp.MustCompile(`:\s*\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:`),
     regexp.MustCompile(`(?i)>\s*/dev/(?:disk|rdisk|sd|hd|vd|nvme)`),
+    // 对根目录递归放开权限或改所有者，影响范围过大，不能靠一次 Allow 放行。
     regexp.MustCompile(`(?i)(^|\s)chmod\s+-R\s+777\s+/(?:\s|$)`),
     regexp.MustCompile(`(?i)(^|\s)chown\s+-R\s+[^;\n]+\s+/(?:\s|$)`),
 }
@@ -158,6 +194,22 @@ func hitsBlacklist(command string) (bool, string) {
 ## 拒绝仍然是 ReAct Observation
 
 黑名单命中不会终止整个 Agent 进程。Agent 将 CheckResult 转成 `permission_denied` Tool Result，写回 Conversation；模型可以看到失败原因并选择更安全的动作。测试中的 Provider 第一轮强行请求 `rm -rf /`，工具没有执行，第二轮仍能返回 `safer plan` 并正常结束。
+
+真正阻断真实执行的是 Agent 层的这一小段：
+
+```go
+switch check.Decision {
+case permission.DecisionAllow:
+    return executeAllowedTool(ctx, registry, env, call, opts)
+case permission.DecisionDeny:
+    // 黑名单、沙箱或规则拒绝都会停在这里；真实工具不会进入 Registry.Execute。
+    return permissionDeniedResult(call, check)
+case permission.DecisionAsk:
+    // 省略交互审批分支
+}
+```
+
+这里返回的是工具失败结果，而不是进程崩溃。对模型来说，它仍然是一条 Observation；对系统来说，危险命令没有越过执行边界。
 
 这比直接关闭进程更适合 ReAct：危险动作被硬拒绝，但任务可以通过其他工具继续完成。
 

@@ -10,6 +10,18 @@ tags:
   - Go
 ---
 
+先给结论：这里的“沙箱”就是给文件工具画一圈围栏。`read_file`、`write_file`、`edit_file`、`search_code`、`find_files` 可以在当前工作区里面活动，但不能翻到工作区外面去碰别的文件。
+
+最直观的判断是：
+
+```text
+README.md                 -> 在工作区内，允许继续检查
+src/main.go               -> 在工作区内，允许继续检查
+../outside.txt            -> 翻出工作区，直接拒绝
+/etc/passwd               -> 绝对路径在外面，直接拒绝
+link/secret.txt           -> 如果 link 指向外部，解析后直接拒绝
+```
+
 对文件 Tool 而言，检查原始字符串是否以项目路径开头远远不够。`../outside` 可以直接穿越目录，项目内 symlink 可以指向外部，一个尚不存在的新文件又无法直接调用 `EvalSymlinks`。
 
 PseudoClaude 的路径边界位于 Permission Engine：先根据 Tool 参数提取目标，再解析工作区和目标的真实路径，最后才进入 Allow/Deny Rule。它保护的是内置文件 Tool 的目标，不是操作系统级进程沙箱。
@@ -26,6 +38,7 @@ func pathTarget(call llm.ToolCall) (
 ) {
     switch call.Name {
     case "read_file", "write_file", "edit_file":
+        // 精确路径工具直接使用 path；是否越界交给后续 sandboxTarget 判断。
         var args struct {
             Path string `json:"path"`
         }
@@ -35,6 +48,7 @@ func pathTarget(call llm.ToolCall) (
         }
         return args.Path, args.Path, true
     case "search_code":
+        // search_code 的 path 可省略；省略时表示从当前工作区根开始搜索。
         var args struct {
             Pattern string `json:"pattern"`
             Path    string `json:"path"`
@@ -48,6 +62,7 @@ func pathTarget(call llm.ToolCall) (
         }
         return args.Path, args.Path, true
     case "find_files":
+        // glob 不能当真实路径解析，所以沙箱只检查它的静态根，规则仍匹配完整 pattern。
         var args struct {
             Pattern string `json:"pattern"`
         }
@@ -136,6 +151,7 @@ func insideRoot(root, target string) bool {
     if target == root {
         return true
     }
+    // 必须带路径分隔符比较，避免 /work/project-evil 被误认为 /work/project 内部。
     sep := string(filepath.Separator)
     return strings.HasPrefix(target, root+sep)
 }
@@ -146,12 +162,14 @@ func sandboxTarget(root, raw string) (string, bool, error) {
     }
     target := raw
     if !filepath.IsAbs(target) {
+        // 相对路径先放进当前工作区；之后仍会解析 .. 和 symlink 得到真实位置。
         target = filepath.Join(root, target)
     }
     abs, err := filepath.Abs(target)
     if err != nil {
         return "", false, err
     }
+    // 已存在路径解析自身；未创建路径解析最近存在祖先，覆盖读和写两类文件工具。
     resolved, err := evalSymlinksOrAncestor(abs)
     if err != nil {
         return "", false, err
@@ -238,6 +256,7 @@ func resolvePath(env Env, raw string) (string, error) {
     if !filepath.IsAbs(path) {
         path = filepath.Join(env.CWD, path)
     }
+    // 这里只做路径规范化，不判断是否仍在工作区；沙箱检查发生在 Permission Engine。
     abs, err := filepath.Abs(filepath.Clean(path))
     if err != nil {
         return "", err

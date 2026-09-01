@@ -14,6 +14,26 @@ Session 能恢复一次会话，但不适合直接充当长期记忆。完整日
 
 PseudoClaude 的 Memory 只保存经过筛选的稳定信息。主 Agent 正常完成一次任务后，将本轮新增消息交给独立模型请求；模型返回 Create、Update 或 Delete 操作，Manager 再分别更新项目级和用户级 Markdown Store。下一次 Run 只把轻量索引放进 System Prompt，不预加载全部正文。
 
+先用一句话抓住它：**长期记忆不是聊天记录，而是聊天结束后异步整理出来的一组小卡片。**
+
+可以把这条链路想成四个角色：
+
+```text
+Runner
+  负责判断“一轮对话已经正常结束”，然后把本轮新增消息交给 Memory。
+
+Memory Manager
+  负责开后台任务，调用模型提取记忆操作，并协调两个 Store。
+
+Memory Prompt
+  负责告诉模型：只返回 JSON，不要把整段聊天原样存起来。
+
+Store
+  负责把通过校验的操作写成 Markdown 文件和 MEMORY.md 索引。
+```
+
+这也是理解本文的主线：**先筛选，再结构化，再落盘，下一轮才可见。**
+
 ## 两个维度描述一条记忆
 
 Memory 将共享范围和内容类型分开建模：
@@ -61,6 +81,7 @@ func (m *Manager) RefreshIndex() {
     if m == nil {
         return
     }
+    // 只把短索引注入 Prompt；单条 Markdown 正文仍按需保留在 Store 目录。
     project := m.project.LoadIndex()
     user := m.user.LoadIndex()
     var parts []string
@@ -72,6 +93,7 @@ func (m *Manager) RefreshIndex() {
         parts = append(parts,
             "## User Memory\n"+strings.TrimSpace(user))
     }
+    // 项目记忆优先出现，使当前仓库约定先于跨项目用户偏好进入上下文。
     index := trimIndex(strings.Join(parts, "\n\n"))
     m.mu.Lock()
     m.index = index
@@ -95,13 +117,17 @@ req.Conversation.AddUser(userText)
 
 ```go
 if len(out.ToolCalls) == 0 {
+    // 保存最新用量锚点，供下一轮上下文压缩判断使用。
     if r.Compact != nil {
         r.Compact.UpdateUsageAnchor(out.Usage, req.Conversation.Len())
     }
     unknownCount = 0
+    // 只有顶层 Agent 更新长期记忆，避免子 Agent 重复写入同一段上下文。
+    // UpdateAsync 内部会另起 goroutine；这里触发的是“排队更新”，不是同步等待落盘。
     if !r.Sub.IsSubAgent {
         r.updateMemoryAfterRun(req.Conversation, startLen)
     }
+    // 先通知 Hook，再向调用方发送最终停止事件。
     r.dispatchHook(ctx, hook.EventStop, permissionMode, hook.Payload{"iter": iteration})
     sendStop(ctx, events, iteration, StopCompleted, "completed")
     return
@@ -122,6 +148,8 @@ func (m *Manager) UpdateAsync(ctx context.Context, input UpdateInput) {
         return
     }
     m.mu.Lock()
+    // 启动 goroutine 前取得 Provider 和索引快照，本轮提取基于调用时观察到的记忆状态。
+    // 这里故意只快照旧索引和本轮消息：提取模型需要判断“新增事实是否已经存在”，不需要读取每条正文。
     provider := m.provider
     projectIndex := m.project.LoadIndex()
     userIndex := m.user.LoadIndex()
@@ -130,9 +158,12 @@ func (m *Manager) UpdateAsync(ctx context.Context, input UpdateInput) {
         return
     }
     go func() {
+        // 从这里开始进入后台更新；用户已经可以看到最终回答，慢的是下一轮记忆可见性。
+        // 同一 Manager 可能连续完成多个 Agent 回合；串行化可避免索引读改写互相覆盖。
         m.updateMu.Lock()
         defer m.updateMu.Unlock()
 
+        // 独立模型请求只返回结构化 Operation，不把原始会话直接复制成长记忆。
         ops, err := collectJSONOperations(
             ctx,
             provider,
@@ -145,6 +176,8 @@ func (m *Manager) UpdateAsync(ctx context.Context, input UpdateInput) {
         if len(ops) == 0 {
             return
         }
+        // 丢弃字段不完整的操作，再按 project/user 生命周期分发到不同 Store。
+        // 语义判断交给提取模型，路径安全和文件格式仍交给 Store 做最后防线。
         var projectOps, userOps []Operation
         for _, op := range ops {
             if err := ValidateOperation(op); err != nil {
@@ -180,7 +213,7 @@ func (m *Manager) UpdateAsync(ctx context.Context, input UpdateInput) {
 }
 ```
 
-`UpdateAsync` 返回时模型请求通常还没开始，用户不必等待第二次推理。`updateMu` 保证同一个 Manager 的实际更新任务串行执行，避免两个 goroutine 同时改写 Store 文件。
+`UpdateAsync` 返回时，后台模型请求通常还没真正完成，用户不必等待第二次推理。可以把它理解成“把整理记忆这件事放到后台队列里”。`updateMu` 保证同一个 Manager 的实际更新任务串行执行，避免两个 goroutine 同时改写 Store 文件。
 
 不过，旧索引是在 goroutine 排队之前读取的。若两个更新快速进入队列，后一个任务可能携带前一个任务写入前的旧索引；串行化保护了文件操作，却没有让提取输入自动刷新到最新版本。
 
@@ -208,6 +241,8 @@ Create 需要 Level、Type、Title 和 Content；Update 需要 Level、Filename 
 ```go
 b.WriteString("\n\n[recent turn]\n")
 for _, msg := range turn {
+    // 记忆提取只看本轮消息的角色和文本内容，避免把大型工具结果再次塞进后台请求。
+    // 如果某个项目事实只藏在 ToolResult 里，助手需要在正文中概括它，Memory 才更容易保存。
     b.WriteString("role=" + msg.Role + "\n")
     if msg.Content != "" {
         b.WriteString(msg.Content + "\n")
@@ -258,6 +293,7 @@ func collectJSONOperations(
 
 ```go
 for _, op := range ops {
+    // Manager 已经按 Level 分组；这里再检查一次，是为了让 Store 单独使用时也不会写错目录。
     if op.Level != "" && op.Level != s.Level {
         continue
     }
