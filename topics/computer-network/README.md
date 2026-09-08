@@ -1,12 +1,10 @@
 ---
 title: Computer Network
-description: Notes on links, routing, HTTP, and TLS.
+description: TCP/IP、连接管理、可靠传输与应用层相关笔记。
 icon: mdi:lan
 order: 1
 tags:
   - Network
 ---
 
-Notes on computer networks.
-
-Add a nested folder for a sub-column, or a Markdown file for a note.
+计算机网络专栏：先从 TCP 可靠性与连接拆除等问题展开。
