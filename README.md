@@ -22,6 +22,7 @@
   <img src="https://img.shields.io/badge/Redis-Ready-4D5F47?style=for-the-badge" alt="Redis" />
   <img src="https://img.shields.io/badge/Message_Queue-Ready-4D5F47?style=for-the-badge" alt="Message Queue" />
   <img src="https://img.shields.io/badge/Golang-Ready-4D5F47?style=for-the-badge" alt="Golang" />
+  <img src="https://img.shields.io/badge/AI_Agent-Ready-4D5F47?style=for-the-badge" alt="AI Agent" />
   <img src="https://img.shields.io/badge/Projects-Standby-222222?style=for-the-badge" alt="Projects" />
 </p>
 
@@ -52,7 +53,7 @@
 
 This is **Lyan**'s public notebook.
 
-The site collects notes on systems and software: computer networks, operating systems, MySQL, Redis, message queues, Golang, and later project write-ups. The homepage is a short introduction; the real archive lives under topic columns that can nest as deep as needed.
+The site collects notes on systems and software: computer networks, operating systems, MySQL, Redis, message queues, Golang, AI agents, and later project write-ups. The homepage is a short introduction; the real archive lives under topic columns that can nest as deep as needed.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -66,6 +67,7 @@ The site collects notes on systems and software: computer networks, operating sy
 | [Redis](./topics/redis/README.md) | Data structures, persistence, cache |
 | [Message Queue](./topics/message-queue/README.md) | Async, peaks, delivery semantics |
 | [Golang](./topics/golang/README.md) | Language, concurrency, engineering |
+| [AI Agent](./topics/ai-agent/README.md) | Agent, Skill, MCP, AI-assisted coding |
 | [Projects](./topics/projects/README.md) | Reserved for project notes and nested sub-columns |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -154,6 +156,7 @@ The Pages source should be set to **GitHub Actions** in the repository settings.
 │   ├── redis/README.md
 │   ├── message-queue/README.md
 │   ├── golang/README.md
+│   ├── ai-agent/README.md
 │   └── projects/README.md
 ├── package.json
 └── README.md
@@ -164,7 +167,7 @@ The Pages source should be set to **GitHub Actions** in the repository settings.
 # Roadmap
 
 - [x] Put Lyan on the homepage
-- [x] Open the seven topic columns
+- [x] Open the topic columns including AI Agent
 - [x] Allow unlimited nested sub-columns
 - [x] Write locally through `topics/**/README.md`
 - [ ] Fill each column with real notes
