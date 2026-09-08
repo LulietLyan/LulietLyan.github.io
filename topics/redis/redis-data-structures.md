@@ -14,7 +14,7 @@ tags:
 
 > 常用数据类型有 String、Hash、List、Set、ZSet 和 Stream 等；Bitmap、Bitfield、HyperLogLog、GEO 等则建立在基础结构或专用编码之上。
 >
-> Redis 不会让一种数据类型永远绑定一种实现，而是根据元素数量、元素大小和内容选择更省内存的编码。比如 String 可以是整数、`embstr` 或普通 `SDS`；List 主要使用 `listpack` 或由多个紧凑节点组成的 `quicklist`；Hash 使用 `listpack` 或哈希表；Set 可使用整数集合、`listpack` 或哈希表；ZSet 较小时使用 `listpack`，较大时同时使用哈希表和跳表；Stream 主要用 Radix Tree 组织装有多条记录的 `listpack`。
+> Redis 不会让一种数据类型永远绑定一种实现，而是根据元素数量、元素大小和内容选择更省内存的编码。比如 String 可以是整数、`embstr` 或普通 `SDS`；List 主要使用 `listpack` 或由多个紧凑节点组成的 `quicklist`；Hash 使用 `listpack` 或哈希表；Set 可使用 `intset`、`listpack` 或哈希表；ZSet 较小时使用 `listpack`，较大时同时使用哈希表和跳表；Stream 主要用 Radix Tree 组织装有多条记录的 `listpack`。
 >
 > 这种自适应编码是在时间和空间之间取舍：小集合用连续紧凑结构减少指针和对象头，大集合转换成哈希表、`quicklist` 或跳表来保证操作复杂度。
 
@@ -26,7 +26,7 @@ tags:
 | List | `listpack`、`quicklist` | 队列、栈、双端列表 | 两端操作 O(1)，按下标访问 O(N) |
 | Hash | `listpack`、`hashtable` | 缓存对象、购物车 | 单字段读写平均 O(1) |
 | Set | `intset`、`listpack`、`hashtable` | 去重、成员判断、交并差集、共同关注 | 单元素增删查平均 O(1) |
-| Sorted Set | `listpack`、`skiplist`（跳表 + 字典） | 排行榜、延迟任务、范围查询 | 增删和定位通常 O(log N) |
+| ZSet | `listpack`、`skiplist`（跳表 + 字典） | 排行榜、延迟任务、范围查询 | 增删和定位通常 O(log N) |
 | Stream | `stream`（Radix Tree + `listpack`） | 追加日志、消费组、消息处理 | `XADD` 通常 O(1) |
 
 ## String
@@ -39,7 +39,7 @@ Redis String 可以保存文本、序列化数据、整数和二进制内容。�
 - `embstr`：短字符串的对象头和 `SDS` 一次连续分配，减少分配次数和碎片。
 - `raw`：较长或被修改后的字符串使用独立 `SDS`。
 
-Bitmap 和 Bitfield 本质上也是对 String 中二进制位的解释。一次设置很远的 Bit 可能让字符串立即扩展，应防止异常偏移导致大内存分配。
+Bitmap 和 Bitfield 本质上也是对 String 中二进制位的解释。一次设置很远的 bit 可能让字符串立即扩展，应防止异常偏移导致大内存分配。
 
 ## List：`listpack` 与 `quicklist`
 
@@ -50,7 +50,7 @@ List 保证插入顺序，并支持头尾 O(1) 推入和弹出。较小列表可
 - 每个元素一个链表节点：修改方便，但指针和分配开销大，缓存局部性差。
 - 所有元素一个连续数组：内存紧凑，但中间修改可能搬移大量数据。
 
-List 可以作为消息队列的一种实现方式。消息队列应该满足消息保序、重复处理、消息可靠。而 List 的 FIFO 特性天然满足第一条，只是需要使用 `BRPOP` 阻塞式地取出消息防止 CPU 空转。
+List 可以作为消息队列的一种实现方式。消息队列应该满足消息保序、重复处理、消息可靠。而 List 的 `FIFO` 特性天然满足第一条，只是需要使用 `BRPOP` 阻塞式地取出消息防止 CPU 空转。
 
 如果要让 List 处理重复的消息，需要两个条件：
 - 每个消息都有全局 ID
@@ -64,8 +64,8 @@ List 适合简单队列和双端队列，但不支持多个消费者和消费组
 ## Hash：紧凑小对象与哈希表
 
 Hash 使用 `listpack` 或 `hashtable` 实现：
-- 哈希类型元素个数小于 512 个，且每个元素小于 64 字节时使用压缩列表实现
-- 不满足上述条件时使用哈希表实现
+- 哈希类型元素个数小于 512 个，且每个元素小于 64 字节时使用 `listpack` 实现
+- 不满足上述条件时使用 `hashtable` 实现
 
 Hash 的应用场景：
 - 缓存对象
