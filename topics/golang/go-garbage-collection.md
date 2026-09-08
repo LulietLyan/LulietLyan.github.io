@@ -164,30 +164,30 @@ writePointer(slot, ptr):
 
 因此：混合屏障的核心工程收益不是“消灭 STW”，而是 `消灭与 goroutine 数量和栈深度 unbound 相关的标记终止栈重扫`，把暂停压到与“启停屏障、少量收尾”同量级。
 
-### 编译器插入与 amd64 汇编路径
+### 编译器如何插入写屏障
 
-写屏障仅在 `runtime.writeBarrier.enabled != 0`（并发标记阶段）时真正执行。对形如 `*(CX+off) = AX` 的堆指针写入，编译器大致生成（`asm_amd64.s` 注释中的典型模式）：
+写屏障只在并发标记阶段开启（`runtime.writeBarrier.enabled != 0`）。编译器对可能写入堆或全局的指针赋值插入检查：屏障关闭则直接写；开启则先记录相关指针，再执行真正的 `*slot = ptr`（屏障在发布之前，即 pre-publication）。
+
+amd64 上一次典型的堆指针写入大致如下（摘自运行时注释中的模式）：
 
 ```asm
     CMPL    $0, runtime.writeBarrier(SB)
     JEQ     dowrite
-    CALL    runtime.gcWriteBarrier2(SB)   // 向 per-P wbBuf 预留 2 个指针槽，返回缓冲区地址于 R11
-    MOVQ    AX, (R11)                     // 入队新指针 ptr（插入侧）
+    CALL    runtime.gcWriteBarrier2(SB)   // 预留缓冲，供写入旧指针与新指针
+    MOVQ    AX, (R11)                     // 记录新指针 ptr
     MOVQ    off(CX), DX
-    MOVQ    DX, 8(R11)                    // 入队旧指针 *slot（删除侧）；必须在真正写入前读取
+    MOVQ    DX, 8(R11)                    // 记录旧指针 *slot（须在覆盖前读取）
 dowrite:
-    MOVQ    AX, off(CX)                   // 真正的 *slot = ptr（pre-publication：屏障先于发布）
+    MOVQ    AX, off(CX)                   // *slot = ptr
 ```
 
 要点：
 
-1. `快速路径在汇编中完成`（`gcWriteBarrier1`…`gcWriteBarrier8`）：按所需字节数（8×指针个数）推进当前 P 的 `wbBuf.next`；`不遵循普通 Go ABI，不破坏通用寄存器`，因此堆指针赋值的热路径开销接近“几次内存读写 + 条件跳转”，而非完整函数调用约定。
-2. 缓冲区满时进入慢路径 `wbBufFlush`：保存全部 GP 寄存器，把缓冲指针刷入 GC 工作队列并真正 `shade`；该路径 `NOSPLIT`，避免在未知类型的 spilled 寄存器上发生 GC safepoint。
-3. `gcWriteBarrierN` 的 N 表示一次要记录的指针个数；混合屏障对单次指针赋值通常为 2（旧值 + 新值）。批量移动/清零走 `bulkBarrierPreWrite`（`typedmemmove` / `typedmemclr` 等），逻辑相同：先对将覆盖的旧槽位（及来源中的新指针）做屏障，再 `memmove`/`memclr`。
-4. `当前帧栈写入`由编译器省略屏障；通过指针间接写“可能指向堆”的槽位仍会生成屏障。`全局变量`中的堆指针写入也走屏障，以避免标记终止时再扫全局。
-5. 实现上，运行时选择 `无条件对相关指针 grey`，而不依赖“slot 所在对象当前是否为黑”的条件判断：在弱内存序下，mutator 与 GC 对 mark bit 与 slot 的交叉读写若缺少昂贵的内存屏障，可能观察到不一致的中间状态；一律 grey 用少量多余标记换取正确性与更低的同步成本（见 `mbarrier.go` 中 memory ordering 注释）。
+1. 混合屏障对单次指针赋值通常记录两个指针：`旧值`（删除侧）与 `新值`（插入侧）。批量复制或清零（如 `typedmemmove`）在真正改写内存前对涉及的指针槽做同样处理。
+2. 记录先进入每个 P 上的写屏障缓冲区，批量刷入 GC 工作队列后再 `shade`，以摊销开销。热路径因此接近“条件判断 + 少量入队”，而非每次完整走一遍标记逻辑。
+3. `当前帧的栈本地写入`通常不插屏障；经指针间接写入、以及 `全局变量` 中的堆指针写入仍会插屏障，以免标记结束时再扫全局。
 
-写屏障因此把一部分原本可能出现在 STW 里的工作，转化为 `标记期间每个堆指针写的恒定开销`（再经 per-P 缓冲摊销）。这与“低暂停 ≠ GC 免费”一致：暂停缩短后，成本体现为并发标记 CPU、写屏障与 mutator assist。
+写屏障把一部分原本可能落在 STW 里的工作，转化为 `标记期间每个堆指针写上的固定开销`。低暂停不等于 GC 免费：成本转为并发标记 CPU、写屏障与 mutator assist。
 
 ## 一次 GC 周期
 
