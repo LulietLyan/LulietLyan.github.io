@@ -26,7 +26,7 @@ export const GET: APIRoute = async () => {
 > ${home.description}
 
 ## Overview
-${home.name} writes notes on Computer Network, Operating System, MySQL, Redis, Message Queue, Golang, and Projects.
+${home.name} writes notes on Computer Network, Operating System, MySQL, Redis, Message Queue, Golang, AI Agent, and Projects.
 
 ## Key Information
 ${home.availability ? `- **Status:** ${home.availability}` : ''}
