@@ -1,12 +1,10 @@
 ---
 title: Operating System
-description: Notes on processes, memory, filesystems, and concurrency.
+description: 进程与并发、虚拟内存、I/O 多路复用与死锁等操作系统笔记。
 icon: mdi:chip
 order: 2
 tags:
   - Systems
 ---
 
-Notes on operating systems.
-
-Process scheduling, virtual memory, and filesystems can live here as sub-columns or single notes.
+操作系统专栏：I/O 多路复用、内存分配与映射、对齐与死锁等。
