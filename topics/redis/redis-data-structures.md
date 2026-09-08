@@ -12,31 +12,11 @@ tags:
 
 ## 省流
 
-> 回答 Redis 数据结构时，我会区分“对外数据类型”和“底层编码”。常用数据类型有 String、Hash、List、Set、Sorted Set 和 Stream；Bitmap、Bitfield、HyperLogLog、GEO 等则建立在基础结构或专用编码之上。
+> 常用数据类型有 String、Hash、List、Set、ZSet 和 Stream 等；Bitmap、Bitfield、HyperLogLog、GEO 等则建立在基础结构或专用编码之上。
 >
 > Redis 不会让一种数据类型永远绑定一种实现，而是根据元素数量、元素大小和内容选择更省内存的编码。比如 String 可以是整数、`embstr` 或普通 SDS；List 主要使用 `listpack` 或由多个紧凑节点组成的 `quicklist`；Hash 使用 `listpack` 或哈希表；Set 可使用整数集合、`listpack` 或哈希表；ZSet 较小时使用 `listpack`，较大时同时使用哈希表和跳表；Stream 主要用 Radix Tree 组织装有多条记录的 `listpack`。
 >
 > 这种自适应编码是在时间和空间之间取舍：小集合用连续紧凑结构减少指针和对象头，大集合转换成哈希表、Quicklist 或跳表来保证操作复杂度。面试中不能只说“五大类型”，还要说明常用命令、典型复杂度以及为什么会切换编码。
-
-## 先分清三层概念
-
-```text
-命令语义       String / Hash / List / Set / ZSet / Stream
-                   |
-Redis 对象层    type + encoding + ptr + 引用/淘汰元数据
-                   |
-底层结构       SDS / dict / listpack / quicklist / intset / skiplist / rax
-```
-
-同一个 Redis Key 指向一个对象，对象记录逻辑类型、当前编码和底层数据指针。客户端看到的是稳定的命令语义，Redis 可以在内部转换编码。
-
-可以用下面的命令观察某个 Key 当前采用的编码：
-
-```text
-OBJECT ENCODING key
-```
-
-编码阈值可通过配置调整，而且会随 Redis 版本演进。例如旧资料中的 `ziplist` 在 Redis 7.0 以后应更多表述为 `listpack`；面试时最好先说明版本背景。
 
 ## 核心数据类型
 
@@ -51,7 +31,7 @@ OBJECT ENCODING key
 
 复杂度只是入口成本。像 `LRANGE 0 -1`、`SMEMBERS`、`HGETALL`、大范围 `ZRANGE` 还要加上返回 M 个元素的 O(M)，可能阻塞 Redis 主线程和网络输出。
 
-## String：字节序列，不只是字符串
+## String
 
 Redis String 可以保存文本、序列化数据、整数和二进制内容。逻辑上它是二进制安全的字节序列，长度不是靠 `\0` 结束。
 
@@ -86,7 +66,7 @@ Set 的语义是无序且元素唯一。成员都是整数且集合较小时可�
 
 `SISMEMBER`、`SADD`、`SREM` 在哈希表编码下平均 O(1)。交集、并集和差集需要遍历集合，不能因为单元素查找是 O(1) 就认为 `SINTER` 也是 O(1)。
 
-## Sorted Set：字典与跳表各司其职
+## ZSet：字典与跳表各司其职
 
 ZSet 的每个 member 唯一，并关联一个 `double` score，按 `(score, member)` 排序：score 不同按 score；score 相同按 member 字典序。
 
@@ -130,7 +110,7 @@ Stream 与 Pub/Sub 的区别是消息会保留，可以回放和确认；Pub/Sub
 
 ### 编码转换是双向的吗？
 
-不能笼统回答“都会自动转回”。不同类型和版本的收缩转换策略不同，有些历史实现只在增长时转换。应把编码看作实现细节，并以当前版本源码、配置和 `OBJECT ENCODING` 的实际结果为准。
+不同类型和版本的收缩转换策略不同，有些历史实现只在增长时转换。应把编码看作实现细节，并以当前版本源码、配置和 `OBJECT ENCODING` 的实际结果为准。
 
 ### Redis 单线程为什么还需要哈希表和跳表？
 
