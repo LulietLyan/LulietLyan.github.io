@@ -2,11 +2,12 @@
 @import '@fontsource-variable/space-grotesk';
 
 @theme {
-  --color-background: #101310;
-  --color-accent: #D8FF55;
-  --color-maintext: #F7F3E8;
-  --color-subtext: #B8B6A8;
-  --color-textrain: #4D5F47;
+  --color-background: #14121C;
+  --color-accent: #CDB4FF;
+  --color-maintext: #F5F2FB;
+  --color-subtext: #A79EB9;
+  --color-textrain: #6F6688;
+  --accent-rgb: 205, 180, 255;
 
   --font-heading: "Space Grotesk Variable", sans-serif;
   --font-body: Georgia, "Times New Roman", serif;
@@ -37,19 +38,21 @@
 @layer base {
   :root,
   [data-theme="journal-dark"] {
-    --color-background: #101310;
-    --color-accent: #D8FF55;
-    --color-maintext: #F7F3E8;
-    --color-subtext: #B8B6A8;
-    --color-textrain: #4D5F47;
+    --color-background: #14121C;
+    --color-accent: #CDB4FF;
+    --color-maintext: #F5F2FB;
+    --color-subtext: #A79EB9;
+    --color-textrain: #6F6688;
+    --accent-rgb: 205, 180, 255;
   }
 
   [data-theme="journal-light"] {
-    --color-background: #F8F4E8;
-    --color-accent: #C2410C;
-    --color-maintext: #161512;
-    --color-subtext: #675F51;
-    --color-textrain: #C9A66B;
+    --color-background: #F7F3FC;
+    --color-accent: #7E6DB5;
+    --color-maintext: #1B1726;
+    --color-subtext: #6B6280;
+    --color-textrain: #C9BFE0;
+    --accent-rgb: 126, 109, 181;
   }
 
   [data-theme="strategic-dark"] {
