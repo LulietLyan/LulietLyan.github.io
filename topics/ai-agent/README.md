@@ -1,6 +1,6 @@
 ---
 title: AI Agent
-description: Agent、Tool、Skill、MCP 与 AI 辅助编程相关笔记。
+description: Agent、Tool、Skill、MCP、AI 辅助编程，以及《深入理解 AI Agent》思考题笔记。
 icon: mdi:robot-outline
 order: 9
 tags:
@@ -9,4 +9,4 @@ tags:
   - Tools
 ---
 
-AI Agent 专栏：区分聊天补全与可行动的 Agent，说明 Tool、Skill、MCP 等常见概念，以及 AI 辅助编码的使用边界。
+AI Agent 专栏：基础概念之外，另有子专栏整理 [《深入理解 AI Agent》](https://bojieli.github.io/ai-agent-book/) 各章思考题。
