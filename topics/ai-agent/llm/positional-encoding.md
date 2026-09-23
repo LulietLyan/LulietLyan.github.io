@@ -24,13 +24,9 @@ Transformer的核心机制——自注意力，在计算时处理的是一个集
 1.  **正弦/余弦位置编码（Sinusoidal Positional Encoding）：**
     这是原始Transformer论文《Attention Is All You Need》中使用的方法。它使用不同频率的正弦和余弦函数来生成位置编码，其公式如下：
 
-$$
-PE_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)
-$$
+    $$PE_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)$$
 
-$$
-PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)
-$$
+    $$PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)$$
 
     其中， `pos` 是词元在序列中的位置， `i` 是编码向量中的维度索引， $d_{\text{model}}$ 是嵌入维度。
 
