@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 1.5：** 请比较一下几种常见的 LLM 架构，例如 Encoder-Only, Decoder-Only, 和 Encoder-Decoder，并说明它们各自最擅长的任务类型。
+> 请比较一下几种常见的 LLM 架构，例如 Encoder-Only, Decoder-Only, 和 Encoder-Decoder，并说明它们各自最擅长的任务类型。
 
 LLM的架构主要可以分为三类，它们的核心区别在于使用了Transformer的哪些部分以及注意力机制的类型，这直接决定了它们各自擅长的任务。
 
