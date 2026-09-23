@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 1.7：** 在LLM的推理阶段，有哪些常见的解码策略？请解释 Greedy Search, Beam Search, Top-K Sampling 和 Nucleus Sampling (Top-P) 的原理和优缺点。
+> 在LLM的推理阶段，有哪些常见的解码策略？请解释 Greedy Search, Beam Search, Top-K Sampling 和 Nucleus Sampling (Top-P) 的原理和优缺点。
 
 在LLM的推理（或称解码）阶段，模型会生成一个词元概率分布，解码策略决定了如何从这个分布中选择下一个词元。常见的策略可以分为确定性和随机性两类。
 
