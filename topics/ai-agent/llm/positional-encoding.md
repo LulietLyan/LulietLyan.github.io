@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 1.2：** 什么是位置编码？在 Transformer 中，为什么它是必需的？请列举至少两种实现方式。
+> 什么是位置编码？在 Transformer 中，为什么它是必需的？请列举至少两种实现方式。
 
 ## 什么是位置编码？
 
@@ -24,15 +24,15 @@ Transformer的核心机制——自注意力，在计算时处理的是一个集
 1.  **正弦/余弦位置编码（Sinusoidal Positional Encoding）：**
     这是原始Transformer论文《Attention Is All You Need》中使用的方法。它使用不同频率的正弦和余弦函数来生成位置编码，其公式如下：
 
-    ```text
-    PE_{(pos, 2i)} = \sin(pos / 10000^{2i/d_{\text{model}}})
-    ```
+$$
+PE_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)
+$$
 
-    ```text
-    PE_{(pos, 2i+1)} = \cos(pos / 10000^{2i/d_{\text{model}}})
-    ```
+$$
+PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)
+$$
 
-    其中， `pos` 是词元在序列中的位置， `i` 是编码向量中的维度索引， `d_{\text{model}}` 是嵌入维度。
+    其中， `pos` 是词元在序列中的位置， `i` 是编码向量中的维度索引， $d_{\text{model}}$ 是嵌入维度。
 
     * **优点：**
         * **可外推性：** 能够处理比训练中最长序列还要长的序列。
