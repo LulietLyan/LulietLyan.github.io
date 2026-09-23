@@ -23,9 +23,7 @@ tags:
     * **任务：** 给定一张图片和一个描述图片中某个物体的短语（如“the woman in the red dress”），模型需要输出该物体的位置，通常是一个**边界框（Bounding Box）**。
     * **评估指标：** 将模型预测的边界框与人工标注的真实边界框（Ground Truth BBox）进行比较，计算它们的**交并比（Intersection over Union, IoU）**。
 
-$$
-\text{IoU} = \frac{\text{Area of Overlap}}{\text{Area of Union}}
-$$
+    $$\text{IoU} = \frac{\text{Area of Overlap}}{\text{Area of Union}}$$
 
     通常会设定一个IoU阈值（如0.5或0.75），如果模型预测的IoU超过该阈值，则认为定位正确。最后计算**准确率（Accuracy@IoU>threshold）**。
 
