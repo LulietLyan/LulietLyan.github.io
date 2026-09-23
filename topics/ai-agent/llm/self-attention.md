@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 1.1：** 请详细解释一下 Transformer 模型中的自注意力机制是如何工作的？它为什么比 RNN 更适合处理长序列？
+> 请详细解释一下 Transformer 模型中的自注意力机制是如何工作的？它为什么比 RNN 更适合处理长序列？
 
 自注意力（Self-Attention）机制是Transformer模型的核心，它使得模型能够动态地衡量输入序列中不同单词之间的重要性，并据此生成每个单词的上下文感知表示。
 
@@ -22,27 +22,27 @@ tags:
 
 2.  **计算注意力分数：** 为了确定当前词元（由Q代表）应该对其他所有词元（由K代表）投入多少关注，我们计算当前词元的Q与其他所有词元的K的点积。这个分数衡量了两者之间的相关性。
 
-    ```text
-    \text{Score}(Q_i, K_j) = Q_i \cdot K_j
-    ```
+$$
+\text{Score}(Q_i, K_j) = Q_i \cdot K_j
+$$
 
-3.  **缩放（Scaling）：** 将计算出的分数除以一个缩放因子 `\sqrt{d_k}`（ `d_k` 是K向量的维度）。这一步是为了在反向传播时获得更稳定的梯度，防止点积结果过大导致Softmax函数进入饱和区。
+3.  **缩放（Scaling）：** 将计算出的分数除以一个缩放因子 $\sqrt{d_k}$（ `d_k` 是K向量的维度）。这一步是为了在反向传播时获得更稳定的梯度，防止点积结果过大导致Softmax函数进入饱和区。
 
-    ```text
-    \frac{Q \cdot K^T}{\sqrt{d_k}}
-    ```
+$$
+\frac{Q \cdot K^T}{\sqrt{d_k}}
+$$
 
 4.  **Softmax归一化：** 将缩放后的分数通过一个Softmax函数，使其转换为一组总和为1的概率分布。这些概率就是“注意力权重”，表示在当前位置，每个输入词元所占的重要性。
 
-    ```text
-    \text{AttentionWeights} = \text{softmax}\left(\frac{Q K^T}{\sqrt{d_k}}\right)
-    ```
+$$
+\text{AttentionWeights} = \text{softmax}\left(\frac{Q K^T}{\sqrt{d_k}}\right)
+$$
 
 5.  **加权求和：** 最后，将得到的注意力权重与每个词元对应的V向量相乘并求和，得到最终的自注意力层输出。这个输出向量融合了整个序列的上下文信息，且权重由模型动态学习得到。
 
-    ```text
-    \text{Output} = \text{AttentionWeights} \cdot V
-    ```
+$$
+\text{Output} = \text{AttentionWeights} \cdot V
+$$
 
 ## 为什么比RNN更适合处理长序列？
 
