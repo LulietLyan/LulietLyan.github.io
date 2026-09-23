@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 2.2：** 请解释 CLIP 模型的工作原理。它是如何通过对比学习来连接图像和文本的？
+> 请解释 CLIP 模型的工作原理。它是如何通过对比学习来连接图像和文本的？
 
 CLIP（Contrastive Language-Image Pre-training）是一个通过在海量图文对数据上进行预训练，从而学会将图像和文本关联起来的 foundational model。它的核心是利用 **对比学习（Contrastive Learning）** 来打通视觉和语言两个模态。
 
