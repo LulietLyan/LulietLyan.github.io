@@ -8,6 +8,32 @@ import rehypeKatex from 'rehype-katex';
 
 import homeData from './src/data/home.json';
 
+/** @returns {(tree: any, file: any) => void} */
+function promoteDoubleDollarMath() {
+  return (tree, file) => {
+    const source = String(file);
+
+    /** @param {any} node */
+    const visit = (node) => {
+      if (node.type === 'inlineMath' && node.position) {
+        const raw = source.slice(node.position.start.offset, node.position.end.offset);
+        if (raw.startsWith('$$') && raw.endsWith('$$')) {
+          node.type = 'math';
+          node.data = {
+            hName: 'code',
+            hProperties: { className: ['language-math', 'math-display'] },
+            hChildren: [{ type: 'text', value: node.value }],
+          };
+        }
+      }
+
+      node.children?.forEach(visit);
+    };
+
+    visit(tree);
+  };
+}
+
 
 const siteUrl = process.env.SITE_URL || homeData.siteUrl || undefined;
 
@@ -19,7 +45,7 @@ export default defineConfig({
   },
 
   markdown: {
-    remarkPlugins: [remarkMath],
+    remarkPlugins: [remarkMath, promoteDoubleDollarMath],
     rehypePlugins: [rehypeKatex],
   },
 
