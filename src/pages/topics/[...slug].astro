@@ -5,6 +5,7 @@ import Breadcrumbs from '../../components/breadcrumbs.astro';
 import TopicCard from '../../components/topic-card.astro';
 import {
   breadcrumbsFor,
+  articleNavigationFor,
   flattenTopicNodes,
   getTopicForest,
   splitChildren,
@@ -27,6 +28,7 @@ interface Props {
 const { node, forest } = Astro.props;
 const crumbs = breadcrumbsFor(node.id, forest);
 const { columns, articles } = splitChildren(node);
+const { previous, next } = articleNavigationFor(node, forest);
 const rendered = node.entry ? await render(node.entry) : null;
 const Content = rendered?.Content;
 const description = node.description || `${node.title} · Lyan`;
@@ -54,6 +56,34 @@ const description = node.description || `${node.title} · Lyan`;
       <div class="blog-prose">
         <Content />
       </div>
+    )}
+
+    {(previous || next) && (
+      <nav class="mt-16 grid grid-cols-2 gap-4 border-t border-accent/10 pt-8" aria-label="Article navigation">
+        {previous ? (
+          <a
+            href={previous.href}
+            class="group rounded-xl border border-accent/10 bg-accent/5 px-4 py-3 transition-colors hover:border-accent/40"
+          >
+            <span class="font-mono text-[0.65rem] uppercase tracking-[0.18em] text-subtext">Previous</span>
+            <span class="mt-2 block font-heading font-semibold text-maintext transition-colors group-hover:text-accent">
+              ← {previous.title}
+            </span>
+          </a>
+        ) : <span aria-hidden="true" />}
+
+        {next ? (
+          <a
+            href={next.href}
+            class="group rounded-xl border border-accent/10 bg-accent/5 px-4 py-3 text-right transition-colors hover:border-accent/40"
+          >
+            <span class="font-mono text-[0.65rem] uppercase tracking-[0.18em] text-subtext">Next</span>
+            <span class="mt-2 block font-heading font-semibold text-maintext transition-colors group-hover:text-accent">
+              {next.title} →
+            </span>
+          </a>
+        ) : <span aria-hidden="true" />}
+      </nav>
     )}
 
     {!Content && node.children.length === 0 && (
