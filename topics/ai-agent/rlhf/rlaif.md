@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 3.13：** 除了人类反馈，我们还可以利用AI自身的反馈来做对齐，即RLAIF。请谈谈你对RLAIF的理解，它的潜力和风险分别是什么？
+> 除了人类反馈，我们还可以利用AI自身的反馈来做对齐，即RLAIF。请谈谈你对RLAIF的理解，它的潜力和风险分别是什么？
 
 ## 对RLAIF (Reinforcement Learning from AI Feedback)的理解：
 
