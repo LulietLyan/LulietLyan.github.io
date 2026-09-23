@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 5.6：** 请解释“Lost in the Middle”问题。它描述了 RAG 中的什么现象？有什么方法可以缓解这个问题？
+> 请解释“Lost in the Middle”问题。它描述了 RAG 中的什么现象？有什么方法可以缓解这个问题？
 
 **“Lost in the Middle”** 是指大型语言模型（LLM）在处理一个长上下文（long context）时，倾向于**更好地回忆和利用位于上下文开头和结尾的信息，而忽略或遗忘位于中间部分的信息**的一种现象。这个发现在斯坦福大学的一篇名为《Lost in the Middle: How Language Models Use Long Contexts》的论文中被系统性地揭示。
 
