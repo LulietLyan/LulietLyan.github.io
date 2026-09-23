@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 4.6：** 请比较一下两个流行的 Agent 开发框架，如 LangChain 和 LlamaIndex。它们的核心应用场景有何不同？
+> 请比较一下两个流行的 Agent 开发框架，如 LangChain 和 LlamaIndex。它们的核心应用场景有何不同？
 
 LangChain和LlamaIndex是构建LLM应用最流行的两个开源框架，它们都极大地简化了开发流程，但它们的**核心哲学和设计重点有所不同**，导致了它们在应用场景上的差异。
 
