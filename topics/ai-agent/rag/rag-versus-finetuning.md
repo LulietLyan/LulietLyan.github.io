@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 5.1：** 请解释 RAG 的工作原理。与直接对 LLM 进行微调相比，RAG 主要解决了什么问题？有哪些优势？
+> 请解释 RAG 的工作原理。与直接对 LLM 进行微调相比，RAG 主要解决了什么问题？有哪些优势？
 
 **RAG (Retrieval-Augmented Generation)** 的工作原理是一种“**先检索，后生成**”的模式，它将信息检索（Information Retrieval）与文本生成（Text Generation）相结合，来增强大型语言模型（LLM）的能力。
 
