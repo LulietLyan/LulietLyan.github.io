@@ -9,7 +9,7 @@ tags:
   - 面试
 ---
 
-> **原题 2.6：** 请解释Grounding在 VLM 领域中的含义。我们如何评估一个 VLM 是否能将文本描述准确地对应到图片中的特定区域？
+> 请解释Grounding在 VLM 领域中的含义。我们如何评估一个 VLM 是否能将文本描述准确地对应到图片中的特定区域？
 
 在VLM领域，**Grounding（定位或指代）** 指的是将语言中的某个特定概念或短语（a phrase or a concept）与图像中的**特定像素区域（a specific pixel region）** 建立准确对应关系的能力。简单来说，就是模型不仅知道图片里“有什么”，还要知道“在哪里”。
 
@@ -23,9 +23,9 @@ tags:
     * **任务：** 给定一张图片和一个描述图片中某个物体的短语（如“the woman in the red dress”），模型需要输出该物体的位置，通常是一个**边界框（Bounding Box）**。
     * **评估指标：** 将模型预测的边界框与人工标注的真实边界框（Ground Truth BBox）进行比较，计算它们的**交并比（Intersection over Union, IoU）**。
 
-    ```text
-    \text{IoU} = \frac{\text{Area of Overlap}}{\text{Area of Union}}
-    ```
+$$
+\text{IoU} = \frac{\text{Area of Overlap}}{\text{Area of Union}}
+$$
 
     通常会设定一个IoU阈值（如0.5或0.75），如果模型预测的IoU超过该阈值，则认为定位正确。最后计算**准确率（Accuracy@IoU>threshold）**。
 
