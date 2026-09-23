@@ -171,6 +171,32 @@ export function splitChildren(node: TopicNode): {
   return { columns, articles };
 }
 
+export function articleNavigationFor(
+  node: TopicNode,
+  forest: TopicNode[],
+): { previous?: TopicNode; next?: TopicNode } {
+  if (!node.entry || node.isColumn) {
+    return {};
+  }
+
+  const parentTopicId = parentId(node.id);
+  const parent = parentTopicId ? findTopicNode(forest, parentTopicId) : undefined;
+  if (!parent) {
+    return {};
+  }
+
+  const { articles } = splitChildren(parent);
+  const index = articles.findIndex((article) => article.id === node.id);
+  if (index === -1) {
+    return {};
+  }
+
+  return {
+    previous: articles[index - 1],
+    next: articles[index + 1],
+  };
+}
+
 export async function getTopicForest(): Promise<TopicNode[]> {
   const entries = await getVisibleTopics();
   return buildTopicForest(entries);
