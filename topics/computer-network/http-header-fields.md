@@ -1,6 +1,6 @@
 ---
-title: 教材之外的 HTTP 首部字段
-description: 从内容协商、条件请求、跨源访问、反向代理与追踪上下文，说明 HTTP 请求和响应中常见但教材往往一带而过的首部字段。
+title: 关于 HTTP 首部字段
+description: 从内容协商、条件请求、跨源访问、反向代理与追踪上下文等介绍 HTTP 请求和响应中的首部字段。
 date: 2026-10-13
 order: 1
 tags:
@@ -11,7 +11,7 @@ tags:
 
 HTTP 报文由起始行、首部字段和可选的报文主体组成。首部字段是跟在起始行后面的键值对，用来描述报文本身，以及传递缓存、凭证、跨源策略、代理链等信息。
 
-教材通常会写到 `Host`、`Content-Type`、`Content-Length`、`User-Agent`、`Date`。下面按请求与响应分开，说明协议和应用里还会出现、但教材较少讲清的字段。这些名字来自 HTTP 语义（RFC 9110）、缓存（RFC 9111）、Cookie（RFC 6265）、跨源资源共享、Fetch 元数据以及少数业界沿用的扩展字段；扩展字段会单独标明。
+很多资料通常会写到 `Host`、`Content-Type`、`Content-Length`、`User-Agent`、`Date`。但在真实开发场景中，针对不同的问题例如内容协商、跨域访问、反向代理等等还有更多更丰富的字段：
 
 ```http
 GET /api/user HTTP/1.1
