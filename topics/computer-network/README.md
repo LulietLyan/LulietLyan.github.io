@@ -1,10 +1,10 @@
 ---
 title: Computer Network
-description: TCP/IP、连接管理、可靠传输与应用层相关笔记。
+description: TCP/IP、连接管理、可靠传输与 HTTP 应用层
 icon: mdi:lan
 order: 1
 tags:
   - Network
 ---
 
-计算机网络专栏：先从 TCP 可靠性与连接拆除等问题展开。
+计算机网络专栏：HTTP 首部字段等。
