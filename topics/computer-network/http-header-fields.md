@@ -1,6 +1,6 @@
 ---
 title: 关于 HTTP 首部字段
-description: 从内容协商、条件请求、跨源访问、反向代理与追踪上下文等介绍 HTTP 请求和响应中的首部字段。
+description: 梳理 HTTP 首部字段的常见用途，涵盖内容协商、缓存、跨源访问、反向代理与请求追踪。
 date: 2026-10-13
 order: 1
 tags:
@@ -9,9 +9,9 @@ tags:
   - Caching
 ---
 
-HTTP 报文由起始行、首部字段和可选的报文主体组成。首部字段是跟在起始行后面的键值对，用来描述报文本身，以及传递缓存、凭证、跨源策略、代理链等信息。
+HTTP 报文由起始行、首部字段和可选的报文主体组成。首部字段以 `字段名: 字段值` 的形式出现，负责描述报文、协商传输方式，以及传递缓存、认证和代理等信息。
 
-很多资料通常会写到 `Host`、`Content-Type`、`Content-Length`、`User-Agent`、`Date`。但在真实开发场景中，针对不同的问题例如内容协商、跨域访问、反向代理等等还有更多更丰富的字段：
+例如，一个携带访问令牌、希望接收 JSON 的请求：
 
 ```http
 GET /api/user HTTP/1.1
@@ -20,13 +20,16 @@ Authorization: Bearer <access_token>
 Accept: application/json
 ```
 
+常见的 `Host`、`Content-Type` 和 `Content-Length` 只是基础。实际开发中，缓存验证、跨源请求、反向代理和链路追踪也会涉及大量首部字段。
+
 ## 请求首部
 
-客户端发给服务端的字段。HTTP/1.1 的请求行给出方法、目标与版本；其余控制信息放在首部里。
+### 1. 内容协商与报文描述
 
-### 内容协商与报文描述
+理解这组字段，首先要区分两个方向：
 
-`Content-Type` 描述**当前报文主体**的媒体类型。`Accept` 描述**希望对端返回**的媒体类型。二者方向不同。
+- `Content-Type`：**当前报文主体是什么类型。**
+- `Accept`：**希望对方返回什么类型。**
 
 ```http
 POST /api/orders HTTP/1.1
@@ -37,44 +40,59 @@ Accept: application/json
 {"productId": 1001, "quantity": 2}
 ```
 
-服务端用 `Content-Type` 决定如何解析请求体，用 `Accept` 决定响应用哪种表示。只看其中一个，无法同时判断“进来的是什么”和“对方要什么”。
+服务端根据 `Content-Type` 解析请求体，并可根据 `Accept` 选择响应表示。二者互不替代。
 
-| 字段 | 含义 |
+| 字段 | 作用 |
 | --- | --- |
-| `Host` | HTTP/1.1 请求的目标主机与端口。虚拟主机和反向代理按它选站点。HTTP/2 对应伪首部 `:authority` |
-| `Accept` | 可接受的响应媒体类型，可带质量值 `q` |
-| `Accept-Encoding` | 可接受的内容编码，如 `gzip`、`br` |
-| `Accept-Language` | 可接受的自然语言 |
-| `Content-Type` | 请求体的媒体类型 |
-| `Content-Length` | 请求体的十进制字节长度 |
-| `Content-Encoding` | 请求体已使用的内容编码 |
-| `User-Agent` | 客户端软件标识 |
+| `Host` | 指定请求目标的主机和端口，常用于虚拟主机路由 |
+| `Accept` | 声明可接受的响应媒体类型，可使用 `q` 设置优先级 |
+| `Accept-Encoding` | 声明可接受的内容编码，如 `gzip`、`br` |
+| `Accept-Language` | 声明偏好的自然语言 |
+| `Content-Type` | 指定报文主体的媒体类型 |
+| `Content-Length` | 报文主体的字节长度 |
+| `Content-Encoding` | 指定主体使用的内容编码 |
+| `User-Agent` | 标识客户端软件 |
 
-`Content-Encoding` 与 `Transfer-Encoding` 不是同一件事。前者作用于**表示**（representation），压缩后的字节就是资源内容的一部分；后者是 HTTP/1.1 的**传输编码**，常见值为 `chunked`，属于逐跳机制，不进入缓存键，也不改变资源本身。HTTP/2 用帧传递报文，不再使用 `Transfer-Encoding: chunked`。
+HTTP/2 中，目标主机信息由伪首部 `:authority` 表达；HTTP/1.1 通常使用 `Host`。
 
-`TE` 声明可接受的传输编码，与 `Accept-Encoding` 也不相同。HTTP/2 里 `TE` 只允许取 `trailers`。
+#### `Content-Encoding` 与 `Transfer-Encoding`
 
-### 来源
+两者处理的是不同层面的问题。
 
-| 字段 | 含义 |
+| 字段 | 含义 | 示例 |
+| --- | --- | --- |
+| `Content-Encoding` | 表示内容的编码方式 | `gzip`、`br` |
+| `Transfer-Encoding` | HTTP/1.1 消息的传输编码 | `chunked` |
+
+`Content-Encoding: gzip` 表示主体经过压缩；`Transfer-Encoding: chunked` 则表示消息采用分块传输，不需要预先给出完整主体的长度。
+
+HTTP/2 使用帧传输数据，不使用 HTTP/1.1 的 `Transfer-Encoding: chunked`。另外，`TE` 声明客户端可接受的传输特性；在 HTTP/2 中，它只允许取值 `trailers`。
+
+### 2. 来源与请求上下文
+
+| 字段 | 作用 |
 | --- | --- |
-| `Origin` | 请求发起方的源：方案、主机、端口，不含路径 |
-| `Referer` | 来源页面的 URI。规范沿用了拼写错误的字段名 |
-| `Sec-Fetch-Site` | 发起方与目标站点的关系：`same-origin`、`same-site`、`cross-site`、`none` |
-| `Sec-Fetch-Mode` | 请求模式：`cors`、`navigate`、`no-cors`、`same-origin`、`websocket` |
-| `Sec-Fetch-Dest` | 请求目标：`document`、`image`、`script`、`empty` 等 |
+| `Origin` | 标识请求源，由方案、主机和端口组成，不含路径 |
+| `Referer` | 指向来源页面的 URI，字段名沿用了历史拼写 |
+| `Sec-Fetch-Site` | 描述请求方与目标之间的站点关系 |
+| `Sec-Fetch-Mode` | 描述请求模式，如 `cors`、`navigate` |
+| `Sec-Fetch-Dest` | 描述请求目标，如 `document`、`image`、`script` |
 
-`Origin` 由浏览器在跨源请求、以及部分同源的非 GET 请求上设置，供 CORS 与 CSRF 相关检查使用。`Referer` 可能被 `Referrer-Policy` 裁成只含源、改成更短的路径，或完全不发送。服务端若把 `Referer` 当成不可伪造的身份依据，会得到错误结论：它可以被客户端改写，也可以被策略删掉。
+`Origin` 常用于 CORS 检查，也可辅助 CSRF 防护。浏览器会在跨源请求以及部分同源的非 GET 请求中发送它。
 
-`Sec-Fetch-*` 属于 Fetch 元数据请求首部，由浏览器设置，脚本不能改。它们用来区分“用户打开页面”“跨站嵌入图片”“跨源 `fetch`”等不同发起方式。
+`Referer` 受 `Referrer-Policy` 控制，可能只包含源，也可能完全省略。它还可以被非浏览器客户端伪造，因此不适合作为身份认证依据。
 
-### 凭证
+`Sec-Fetch-*` 是 Fetch Metadata 字段，浏览器用它们描述请求的发起方式。普通网页脚本不能直接设置这些受限字段，服务端可以据此制定请求过滤策略。
 
-| 字段 | 含义 |
+### 3. 身份认证与 Cookie
+
+| 字段 | 作用 |
 | --- | --- |
-| `Authorization` | 认证凭证。常见方案有 `Basic`、`Bearer`、`Digest` |
-| `Cookie` | 此前由 `Set-Cookie` 写入、且匹配当前请求的 Cookie |
-| `X-CSRF-Token` | 常见的自定义字段，用来携带 CSRF 令牌，不是 HTTP 标准字段 |
+| `Authorization` | 携带认证凭证，常见方案包括 `Basic`、`Bearer` |
+| `Cookie` | 携带与当前请求匹配的 Cookie |
+| `X-CSRF-Token` | 应用常用的 CSRF 令牌字段，名称由项目约定 |
+
+**令牌认证示例：**
 
 ```http
 GET /api/profile HTTP/1.1
@@ -82,29 +100,37 @@ Host: api.example.com
 Authorization: Bearer <access_token>
 ```
 
+**Cookie 会话示例：**
+
 ```http
 GET /api/profile HTTP/1.1
 Host: api.example.com
 Cookie: JSESSIONID=abc123
 ```
 
-`Authorization` 通常由客户端代码或 HTTP 库显式写入。`Cookie` 由浏览器按域名、路径、`Secure`、`HttpOnly`、`SameSite` 等属性自动附带。二者可以同时出现，协议并不规定它们互斥。
+`Authorization` 通常由客户端代码或 HTTP 库设置；`Cookie` 则由浏览器根据域名、路径、`Secure`、`SameSite` 等规则决定是否附带。
 
-`Cookie` 能被浏览器跨请求自动带上，因此依赖 Cookie 的状态变更接口还需要额外的 CSRF 防护。`X-CSRF-Token` 只是其中一种约定名称；具体叫什么由应用自己定。
+两种方式可以同时使用。
 
-### 缓存与范围请求
+需要注意的是，浏览器可能自动携带 Cookie，因此依赖 Cookie 维持会话的状态变更接口应做好 CSRF 防护。`X-CSRF-Token` 只是常见约定，并非 HTTP 标准字段。
 
-缓存语义由 RFC 9111 规定。请求侧常见字段：
+### 4. 缓存验证与范围请求
 
-| 字段 | 含义 |
+缓存相关机制主要涉及两类操作：**验证资源是否更新，以及获取资源的一部分。**
+
+| 字段 | 作用 |
 | --- | --- |
-| `Cache-Control` | 请求对缓存的约束，如 `no-cache`、`no-store`、`max-age=0` |
-| `If-None-Match` | 带上已有 `ETag`；资源未变时可得到 `304 Not Modified` |
-| `If-Modified-Since` | 按修改时间做同样的再验证 |
-| `If-Match` | 仅当当前 `ETag` 匹配时才执行写操作 |
-| `If-Unmodified-Since` | 仅当资源在给定时间后未修改时才执行 |
-| `If-Range` | 与 `Range` 一起使用，避免在资源已变时拼出错误的部分内容 |
-| `Range` | 只要资源的某个字节区间 |
+| `Cache-Control` | 控制缓存行为，如 `no-cache`、`no-store` |
+| `If-None-Match` | 根据 `ETag` 验证资源是否变化 |
+| `If-Modified-Since` | 根据修改时间进行验证 |
+| `If-Match` | 仅当当前 `ETag` 满足条件时执行操作 |
+| `If-Unmodified-Since` | 资源未在指定时间后修改时才执行操作 |
+| `Range` | 请求资源的指定字节范围 |
+| `If-Range` | 资源未变化时请求部分内容，否则获取完整表示 |
+
+#### 使用 `ETag` 验证缓存
+
+客户端已有缓存时，可以将服务器此前返回的 `ETag` 放进 `If-None-Match`：
 
 ```http
 GET /app.js HTTP/1.1
@@ -112,39 +138,63 @@ Host: example.com
 If-None-Match: "v123"
 ```
 
-资源未变时：
+若资源未发生变化，服务器返回：
 
 ```http
 HTTP/1.1 304 Not Modified
 ETag: "v123"
 ```
 
-`304` 没有报文主体，客户端继续使用本地已缓存的表示。
+`304` 不携带响应主体，客户端继续使用本地缓存。
 
-`Cache-Control: no-cache` 允许存储该响应，但在拿出来复用前必须与源服务器再验证。`no-store` 要求不要把该报文存进缓存。把 `no-cache` 读成“禁止缓存”会与实现不符。
+#### `no-cache` 不等于 `no-store`
 
-`If-Match` 用于避免丢失更新：客户端先读到某个 `ETag`，写回时带上它；若中间已被别人改过，源服务器应拒绝这次写。这与只读场景下的 `If-None-Match` 方向相反。
-
-`Range` 请求成功时状态码是 `206 Partial Content`，响应带 `Content-Range`。视频拖动进度、大文件续传都走这条路径。
-
-### 连接、升级与代理
-
-| 字段 | 含义 |
+| 指令 | 含义 |
 | --- | --- |
-| `Connection` | HTTP/1.x 的连接选项，如 `keep-alive`、`close`；也用来列出逐跳首部 |
-| `Keep-Alive` | HTTP/1.0 持久连接的参数提示 |
-| `Expect` | 常见值为 `100-continue`，先问服务器是否愿意接收主体 |
-| `Upgrade` | 请求把当前连接换成另一种协议，例如 WebSocket |
-| `Forwarded` | RFC 7239 定义的代理链信息，可含 `for`、`proto`、`host`、`by` |
-| `X-Forwarded-For` | 业界沿用的客户端地址链，不是 HTTP 标准字段 |
-| `X-Forwarded-Proto` | 业界沿用的原始 URL 方案 |
-| `X-Forwarded-Host` | 业界沿用的原始 `Host` |
+| `no-cache` | 可以存储，但复用前必须重新验证 |
+| `no-store` | 不应存储该报文 |
+| `max-age=0` | 响应立即变为陈旧，通常需要重新验证 |
 
-HTTP/1.1 默认持久连接，`Connection: keep-alive` 在 HTTP/1.1 里多半是冗余的。`Connection`、`Keep-Alive`、`Upgrade`、`Transfer-Encoding` 属于逐跳首部：只对当前这一跳有意义，代理转发时不应原样传到下一跳。
+这些指令的具体效果还会受到其他缓存规则的影响。
 
-HTTP/2 用二进制帧在一条连接上复用多个流，不再用上述字段管理连接。RFC 9113 禁止在 HTTP/2 中使用 `Connection`、`Keep-Alive`、`Proxy-Connection`、`Transfer-Encoding`、`Upgrade`。不能把 HTTP/1.1 的连接规则套到 HTTP/2 上。
+#### 条件写入与部分内容
 
-WebSocket 在 HTTP/1.1 上的握手依赖 `Upgrade`：
+`If-Match` 常用于避免并发更新覆盖彼此的修改。客户端读取资源时取得 `ETag`，更新时带上该标签；如果资源已被其他请求修改，服务器就可以拒绝本次更新。
+
+`Range` 则用于下载部分内容，例如视频拖动进度或大文件断点续传：
+
+```http
+GET /video.mp4 HTTP/1.1
+Host: example.com
+Range: bytes=1000-1999
+```
+
+服务器支持该范围请求时，可返回 `206 Partial Content`，并通过 `Content-Range` 标明本次返回的字节区间。
+
+### 5. 连接管理、协议升级与代理
+
+| 字段 | 作用 |
+| --- | --- |
+| `Connection` | 声明 HTTP/1.x 连接选项，如 `close` |
+| `Keep-Alive` | 提供持久连接参数提示 |
+| `Expect` | 常用于 `100-continue`，先确认服务器是否准备接收主体 |
+| `Upgrade` | 请求将当前连接升级到其他协议 |
+| `Forwarded` | 标准化表达代理链信息 |
+| `X-Forwarded-For` | 传递客户端地址链的常见扩展字段 |
+| `X-Forwarded-Proto` | 传递代理前的原始协议 |
+| `X-Forwarded-Host` | 传递代理前的原始主机信息 |
+
+HTTP/1.1 默认使用持久连接，因此一般不需要显式添加 `Connection: keep-alive`。
+
+#### 逐跳首部
+
+`Connection`、`Keep-Alive`、`Upgrade` 和 `Transfer-Encoding` 等字段涉及当前连接或这一跳的传输行为。代理转发消息时，需要按照协议规则处理逐跳首部，不能简单地把它们原样传给下一跳。
+
+HTTP/2 采用二进制帧和多路复用机制，不再使用 HTTP/1.1 的连接管理方式。RFC 9113 禁止在 HTTP/2 中使用 `Connection`、`Keep-Alive`、`Proxy-Connection`、`Transfer-Encoding` 和 `Upgrade` 等字段。
+
+#### WebSocket 协议升级
+
+HTTP/1.1 的 WebSocket 握手使用 `Upgrade`：
 
 ```http
 GET /chat HTTP/1.1
@@ -153,7 +203,11 @@ Connection: Upgrade
 Upgrade: websocket
 ```
 
-请求经过反向代理后，后端看到的 `Host` 和对端地址往往已经变成内网值。代理用 `Forwarded` 或 `X-Forwarded-*` 把外面的信息带进来：
+这组字段只适用于相应的 HTTP/1.1 握手流程，不能直接套用到 HTTP/2。
+
+#### 反向代理与客户端地址
+
+请求经过反向代理后，后端看到的连接地址和 `Host` 可能已变成代理或内网信息。代理可以通过扩展字段传递外部请求信息：
 
 ```http
 GET /api/user HTTP/1.1
@@ -163,27 +217,37 @@ X-Forwarded-Proto: https
 X-Forwarded-Host: api.example.com
 ```
 
-`X-Forwarded-For` 是逗号分隔的地址列表。客户端可以在到达第一台代理之前自己写入该字段。只有当可信代理会覆盖或追加，并且后端按“从右往左、只信任已知代理这一跳”的规则解析时，才能把它用于访问控制。无条件取最左边的地址，等于允许伪造来源 IP。
+`X-Forwarded-For` 通常以逗号分隔多个地址，但客户端也可能在请求到达第一台代理前自行添加该字段。
 
-`Forwarded` 是同一问题的标准写法，例如 `Forwarded: for=203.0.113.10;proto=https;host=api.example.com`。部署里两种字段经常并存。
+**安全要点：** 后端只能信任已知代理按约定写入的信息，并根据可信代理链解析客户端地址。直接取最左侧地址作为真实 IP，可能导致来源地址伪造。
+
+标准化的 `Forwarded` 字段也能表达类似信息：
+
+```http
+Forwarded: for=203.0.113.10;proto=https;host=api.example.com
+```
+
+两种格式在实际部署中都很常见。
 
 ## 响应首部
 
-服务端返回给客户端的字段。状态码说明结果类别，首部说明如何理解主体、能否缓存、浏览器是否允许跨源读取。
+响应首部描述服务器返回的表示、缓存策略、浏览器安全策略，以及重定向和认证等处理结果。
 
-### 表示与部分内容
+### 1. 表示与文件下载
 
-| 字段 | 含义 |
+| 字段 | 作用 |
 | --- | --- |
-| `Content-Type` | 响应体的媒体类型 |
-| `Content-Length` | 响应体字节长度 |
-| `Content-Encoding` | 响应体的内容编码 |
-| `Content-Language` | 表示所使用的自然语言 |
-| `Content-Disposition` | `inline` 或 `attachment`，以及建议的文件名 |
-| `Content-Range` | `206` 响应中，这一段对应的字节范围 |
-| `Accept-Ranges` | 是否接受范围请求，常见值为 `bytes` |
-| `ETag` | 该表示的实体标签，有强标签与弱标签 `W/"..."` |
-| `Last-Modified` | 该表示的最后修改时间 |
+| `Content-Type` | 指定响应主体的媒体类型 |
+| `Content-Length` | 响应主体的字节长度 |
+| `Content-Encoding` | 指定响应主体的内容编码 |
+| `Content-Language` | 指定表示所使用的自然语言 |
+| `Content-Disposition` | 提示如何处理主体，如内联显示或下载 |
+| `Content-Range` | 标明部分响应对应的字节区间 |
+| `Accept-Ranges` | 声明支持的范围单位，常见值为 `bytes` |
+| `ETag` | 表示当前版本的实体标签 |
+| `Last-Modified` | 表示资源的最后修改时间 |
+
+文件下载示例：
 
 ```http
 HTTP/1.1 200 OK
@@ -192,18 +256,26 @@ Content-Disposition: attachment; filename="report.pdf"
 Content-Length: 102400
 ```
 
-`Content-Disposition: attachment` 提示用户代理把主体当附件保存，而不是在页面里打开。非 ASCII 文件名应使用 RFC 8187 的 `filename*`，不能假定所有客户端都按同一种方式解码 `filename`。
+`Content-Disposition: attachment` 提示客户端将内容作为附件处理，而不是直接在页面内显示。
 
-### 缓存
+需要指定非 ASCII 文件名时，可使用 RFC 8187 定义的 `filename*` 参数，以明确字符编码。例如：
 
-| 字段 | 含义 |
+```http
+Content-Disposition: attachment; filename="report.pdf"; filename*=UTF-8''%E6%8A%A5%E5%91%8A.pdf
+```
+
+### 2. 响应缓存
+
+| 字段 | 作用 |
 | --- | --- |
-| `Cache-Control` | 响应的缓存指令，如 `public`、`private`、`no-store`、`max-age=3600` |
-| `Expires` | 用 HTTP 日期给出过期时刻；与 `max-age` 同时出现时，以 `Cache-Control` 为准 |
-| `ETag` | 后续条件请求要比对的版本标识 |
-| `Last-Modified` | 后续可用 `If-Modified-Since` 再验证 |
-| `Vary` | 该响应随哪些请求首部变化，缓存必须把这些字段纳入匹配键 |
-| `Age` | 该响应在共享缓存中已经停留的秒数 |
+| `Cache-Control` | 设置缓存策略 |
+| `Expires` | 指定响应的过期时间 |
+| `ETag` | 提供版本验证标识 |
+| `Last-Modified` | 提供最后修改时间 |
+| `Vary` | 指定哪些请求首部会影响响应表示 |
+| `Age` | 表示响应在共享缓存中已存在的秒数 |
+
+示例：
 
 ```http
 HTTP/1.1 200 OK
@@ -212,74 +284,142 @@ ETag: "abc123"
 Vary: Accept-Encoding
 ```
 
-`public` 允许共享缓存（包括 CDN）存储。`private` 只允许私有缓存存储，通常指浏览器为单一用户保存的缓存。`max-age` 给出新鲜期；过了新鲜期，缓存仍可保留陈旧响应，但再用之前要再验证，除非另有 `stale-while-revalidate` 一类指令。
+常见的缓存指令：
 
-`Vary: Accept-Encoding` 表示 gzip 与未压缩是两份不同的表示，不能把其中一份发给声明了另一种 `Accept-Encoding` 的客户端。漏写 `Vary` 时，共享缓存可能把压缩后的主体交给不能解压的客户端。
+- `public`：允许共享缓存存储。
+- `private`：响应只能存储在私有缓存中。
+- `no-store`：不应存储该报文。
+- `max-age=3600`：响应在指定的新鲜期内可直接复用。
 
-### 跨源访问与浏览器策略
+响应过期后，缓存通常仍可保留它，并在再次使用前进行验证；是否允许直接使用陈旧响应，还取决于其他缓存指令和协议规则。
 
-跨源资源共享（CORS）约束的是**浏览器里的脚本**能否读取这次响应，不是服务端认不认这个调用方。命令行客户端、服务端对服务端的请求不受这些字段限制。
+`Expires` 提供绝对过期时间；如果同时存在有效的 `Cache-Control: max-age`，通常优先采用后者。
 
-预检请求由浏览器发 `OPTIONS`，并带上：
+#### 为什么需要 `Vary`？
 
-| 字段 | 含义 |
+假设服务器会根据 `Accept-Encoding` 返回压缩或未压缩的内容：
+
+```http
+Vary: Accept-Encoding
+```
+
+缓存必须将 `Accept-Encoding` 纳入响应匹配条件，避免把一种编码的表示错误地提供给不适用的客户端。
+
+### 3. 跨源资源共享（CORS）
+
+CORS 控制的是**浏览器中的脚本能否读取跨源响应**，不是服务端是否接受请求。命令行工具和服务端之间的 HTTP 请求不会因为缺少 CORS 响应字段而自动受到浏览器同源策略的限制。
+
+#### 预检请求
+
+当请求不满足 CORS 简单请求条件时，浏览器可能先发送 `OPTIONS` 预检请求。
+
+| 请求字段 | 作用 |
 | --- | --- |
-| `Access-Control-Request-Method` | 真正要发出的方法 |
-| `Access-Control-Request-Headers` | 真正要带上的非简单首部 |
+| `Origin` | 标识请求来源 |
+| `Access-Control-Request-Method` | 声明实际请求使用的方法 |
+| `Access-Control-Request-Headers` | 声明实际请求准备携带的首部 |
 
-对应的响应字段：
+服务器通过以下响应字段声明允许的跨源访问范围：
 
-| 字段 | 含义 |
+| 响应字段 | 作用 |
 | --- | --- |
-| `Access-Control-Allow-Origin` | 允许读取该响应的源。带凭证时不能是 `*`，且一次只能给出一个源 |
-| `Access-Control-Allow-Methods` | 允许的方法 |
-| `Access-Control-Allow-Headers` | 允许的请求首部 |
-| `Access-Control-Expose-Headers` | 允许脚本读取的响应首部。未列出的自定义字段对 `fetch` 不可见 |
-| `Access-Control-Allow-Credentials` | 是否允许带 Cookie 等凭证的跨源请求 |
-| `Access-Control-Max-Age` | 预检结果可被缓存的秒数 |
+| `Access-Control-Allow-Origin` | 指定允许的来源 |
+| `Access-Control-Allow-Methods` | 指定允许的方法 |
+| `Access-Control-Allow-Headers` | 指定允许的请求首部 |
+| `Access-Control-Expose-Headers` | 指定脚本可读取的额外响应首部 |
+| `Access-Control-Allow-Credentials` | 是否允许跨源请求携带凭证 |
+| `Access-Control-Max-Age` | 指定预检结果的缓存时间 |
 
-跨源请求要携带 Cookie 时，前端需使用凭证模式（如 `fetch` 把 `credentials` 设为 `include`），服务端需返回 `Access-Control-Allow-Credentials: true`，并把 `Access-Control-Allow-Origin` 设成具体源。带凭证时该字段不能为 `*`。
+#### 携带 Cookie 的跨源请求
 
-其它常见的浏览器策略字段：
+前端需要使用凭证模式，例如：
 
-| 字段 | 含义 |
+```javascript
+fetch("https://api.example.com/profile", {
+  credentials: "include"
+});
+```
+
+服务端则需要返回：
+
+```http
+Access-Control-Allow-Origin: https://app.example.com
+Access-Control-Allow-Credentials: true
+```
+
+**携带凭证时，`Access-Control-Allow-Origin` 不能使用 `*`，必须返回明确的来源。**
+
+另外，CORS 允许脚本读取响应，不等于接口已经完成身份认证或权限检查。服务端仍须独立验证用户身份和访问权限。
+
+### 4. Cookie 与浏览器安全策略
+
+| 字段 | 作用 |
 | --- | --- |
-| `Set-Cookie` | 写入 Cookie。属性包括 `Domain`、`Path`、`Expires`/`Max-Age`、`Secure`、`HttpOnly`、`SameSite` |
-| `Strict-Transport-Security` | HSTS：在有效期内只允许用 HTTPS 访问该主机 |
-| `Content-Security-Policy` | 限制页面能加载和执行的资源。`frame-ancestors` 控制谁可以嵌入本页 |
-| `X-Content-Type-Options` | 值为 `nosniff` 时，禁止用户代理根据内容猜测媒体类型 |
-| `X-Frame-Options` | 控制本页能否被放入 iframe。较新的替代是 CSP 的 `frame-ancestors` |
-| `Referrer-Policy` | 控制后续请求如何发送 `Referer` |
-| `Permissions-Policy` | 控制页面能否使用摄像头、麦克风等特性 |
+| `Set-Cookie` | 在客户端设置 Cookie |
+| `Strict-Transport-Security` | 启用 HSTS，要求后续通过 HTTPS 访问 |
+| `Content-Security-Policy` | 限制页面可以加载和执行的资源 |
+| `X-Content-Type-Options` | 使用 `nosniff` 禁止媒体类型嗅探 |
+| `X-Frame-Options` | 限制页面被嵌入 `frame` 的方式 |
+| `Referrer-Policy` | 控制后续请求发送的 `Referer` |
+| `Permissions-Policy` | 控制摄像头、麦克风等浏览器特性的使用权限 |
 
-`Set-Cookie` 是响应字段；之后的请求把匹配的 Cookie 放在 `Cookie` 里带回去。`HttpOnly` 使文档内脚本读不到该 Cookie。`SameSite=Lax` 或 `Strict` 限制跨站请求是否附带它；`SameSite=None` 必须同时带 `Secure`。
+#### Cookie 属性
 
-`X-Frame-Options` 仍能见到，但同一份文档里如果也有 CSP `frame-ancestors`，以 CSP 为准。
+服务器通过 `Set-Cookie` 设置 Cookie，浏览器在后续匹配的请求中使用 `Cookie` 将其发送回来。
 
-### 重定向、认证挑战与限流
-
-| 字段 | 含义 |
+| 属性 | 作用 |
 | --- | --- |
-| `Location` | `3xx` 的跳转目标，或 `201 Created` 中新资源的 URI |
-| `WWW-Authenticate` | 与 `401 Unauthorized` 一起使用，给出认证方案和参数 |
-| `Allow` | 与 `405 Method Not Allowed` 一起使用，列出该资源支持的方法 |
-| `Retry-After` | `429` 或 `503` 时，给出应等待的秒数或 HTTP 日期 |
-| `Date` | 报文产生的时刻 |
-| `Server` | 源服务器软件标识，可以省略 |
-| `Via` | 报文经过的代理或网关 |
+| `Domain` | 指定适用的域 |
+| `Path` | 指定适用的路径 |
+| `Expires` / `Max-Age` | 设置过期时间或有效时长 |
+| `Secure` | 仅通过安全连接发送 |
+| `HttpOnly` | 禁止页面脚本直接读取该 Cookie |
+| `SameSite` | 限制 Cookie 在跨站请求中的发送行为 |
 
-`Location` 在重定向里是“再请求哪里”，在 `201` 里是“新建的资源在哪里”，不要只按“跳转”一种意思来读。
+`SameSite=None` 必须同时设置 `Secure`。`SameSite=Lax` 和 `SameSite=Strict` 则会对跨站发送施加不同程度的限制。
 
-`WWW-Authenticate: Bearer realm="api"` 告诉客户端用哪种方案重试。只返回 `401` 而不带该字段，也能拒绝访问，但不符合“挑战—应答”的完整语义。
+#### CSP 与 iframe
 
-### 追踪
+`Content-Security-Policy` 的 `frame-ancestors` 指令可以指定哪些来源允许嵌入当前页面。它比单独使用 `X-Frame-Options` 更灵活。
 
-| 字段 | 含义 |
+当 CSP 的 `frame-ancestors` 生效时，浏览器会优先采用 CSP 的嵌入控制规则。
+
+### 5. 重定向、认证与限流
+
+| 字段 | 常见用途 |
 | --- | --- |
-| `traceparent` | W3C Trace Context 的追踪上下文：版本、trace-id、parent-id、标志 |
-| `tracestate` | 与 `traceparent` 配套的厂商侧状态 |
-| `X-Request-ID` | 常见的自定义请求关联标识，不是 HTTP 标准字段 |
-| `Server-Timing` | 向浏览器暴露各阶段耗时，供性能面板读取 |
+| `Location` | 指定重定向目标，或 `201 Created` 新建资源的位置 |
+| `WWW-Authenticate` | 在 `401 Unauthorized` 响应中提供认证挑战 |
+| `Allow` | 在 `405 Method Not Allowed` 响应中列出支持的方法 |
+| `Retry-After` | 建议客户端等待一段时间后重试 |
+| `Date` | 报文产生的日期和时间 |
+| `Server` | 标识服务器软件，可省略 |
+| `Via` | 记录报文经过的代理或网关 |
+
+`Location` 的含义取决于状态码：
+
+- `3xx`：告诉客户端应该请求哪个 URI。
+- `201 Created`：指出新建资源的位置。
+
+认证挑战示例：
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="api"
+```
+
+`WWW-Authenticate` 告诉客户端服务器支持的认证方案及相关参数。`Retry-After` 则可与 `429 Too Many Requests` 或 `503 Service Unavailable` 等响应配合，给出建议的重试时间。
+
+### 6. 分布式追踪与性能分析
+
+| 字段 | 作用 |
+| --- | --- |
+| `traceparent` | 传递 W3C Trace Context 中的追踪标识、父级跨度标识和标志 |
+| `tracestate` | 传递与追踪上下文配套的厂商状态 |
+| `X-Request-ID` | 应用常用的请求关联标识，属于自定义字段 |
+| `Server-Timing` | 向浏览器提供服务器处理阶段的耗时信息 |
+
+示例：
 
 ```http
 HTTP/1.1 200 OK
@@ -288,6 +428,30 @@ X-Request-ID: req-a81c
 traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 ```
 
-`traceparent` 有固定格式，用于把一次调用在多个服务中的跨度串起来。`X-Request-ID` 没有标准语义，网关、应用和日志系统只要约定同一个名字即可。二者都可以出现在请求里，由第一跳生成后沿调用链传递；响应里回传是为了让客户端或排障方拿到同一个标识。
+`traceparent` 按 W3C Trace Context 规定的格式传递上下文，便于将多个服务中的调用关联起来。
 
-历史上不少扩展字段以 `X-` 开头。RFC 6648 已经不建议再用这个前缀来标记“非标准”，但 `X-Forwarded-For`、`X-Request-ID`、`X-Content-Type-Options` 仍广泛存在。见到 `X-` 只说明它多半不是 RFC 9110 里的字段，并不自动意味着可以忽略或可以信任。
+`X-Request-ID` 没有统一的 HTTP 标准语义，通常由网关或应用生成，再由日志系统和下游服务共同使用。它也可以随响应返回，方便客户端反馈问题时定位日志。
+
+## 关于 `X-` 前缀
+
+历史上，很多自定义首部以 `X-` 开头。RFC 6648 已不建议继续使用该前缀来专门标记非标准字段，但已有字段仍被广泛采用。
+
+例如：
+
+- `X-Forwarded-For`：代理链中的客户端地址信息。
+- `X-Request-ID`：请求关联标识。
+- `X-Content-Type-Options`：浏览器安全策略。
+
+字段是否标准、是否可信，应结合协议定义和部署环境判断，不能只凭 `X-` 前缀下结论。
+
+---
+
+## 参考规范
+
+- [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110)
+- [RFC 9111 — HTTP Caching](https://www.rfc-editor.org/rfc/rfc9111)
+- [RFC 9113 — HTTP/2](https://www.rfc-editor.org/rfc/rfc9113)
+- [RFC 6265 — HTTP State Management Mechanism](https://www.rfc-editor.org/rfc/rfc6265)
+- [RFC 7239 — Forwarded HTTP Extension](https://www.rfc-editor.org/rfc/rfc7239)
+- [RFC 8187 — Encoded HTTP Header Parameter Values](https://www.rfc-editor.org/rfc/rfc8187)
+- [W3C Trace Context](https://www.w3.org/TR/trace-context/)
