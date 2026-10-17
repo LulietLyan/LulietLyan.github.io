@@ -176,24 +176,6 @@ M2 + P0 继续执行其他 G
 
 重点关注 Runnable 队列持续堆积、Goroutine 数只增不减、系统调用线程过多、P 长时间空闲或 Mutex 等待占比异常。
 
-## 扩展问题
-
-### P 和 CPU 核是一一对应的吗？
-
-不是。P 是 Runtime 的逻辑处理器，数量由 `GOMAXPROCS` 决定，操作系统再把 M 调度到真实 CPU 上。常见配置会接近可用 CPU 数，但不存在固定绑定关系。
-
-### M 没有 P 能做什么？
-
-它不能执行普通 Go 用户代码，但可以阻塞在系统调用中、执行某些不需要 P 的 Runtime 工作，或者处于空闲状态。要恢复执行 G，必须先拿到 P。
-
-### Goroutine 阻塞一定不会阻塞线程吗？
-
-不一定。Runtime 能识别的 Channel、锁和网络轮询通常只挂起 G；普通阻塞系统调用会阻塞 M，但 P 可被转交。cgo、外部库以及 Runtime 无法集成的调用还可能长期占用线程。
-
-### `runtime.Gosched()` 和休眠有什么区别？
-
-`Gosched()` 让出当前执行权，但当前 G 仍是 Runnable，之后可以继续被调度；`time.Sleep` 会让 G 等到 Timer 到期前保持 Waiting，不参与普通运行队列竞争。
-
 ## 参考资料
 
 - [Go runtime HACKING: Gs, Ms, Ps](https://go.dev/src/runtime/HACKING)
